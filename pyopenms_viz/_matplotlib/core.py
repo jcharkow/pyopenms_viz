@@ -78,11 +78,11 @@ class MATPLOTLIBPlot(BasePlot, ABC):
             ax: The axes object.
             legend: The legend configuration.
         """
-        if legend is not None and self.legend.show:
+        if legend is not None and self.legend_config.show:
             matplotlibLegendLoc = LegendConfig._matplotlibLegendLocationMapper(
-                self.legend.loc
+                self.legend_config.loc
             )
-            if self.legend.orientation == "horizontal":
+            if self.legend_config.orientation == "horizontal":
                 ncol = len(legend[0])
             else:
                 ncol = 1
@@ -90,13 +90,13 @@ class MATPLOTLIBPlot(BasePlot, ABC):
             legend = ax.legend(
                 *legend,
                 loc=matplotlibLegendLoc,
-                title=self.legend.title,
-                prop={"size": self.legend.fontsize},
-                bbox_to_anchor=self.legend.bbox_to_anchor,
+                title=self.legend_config.title,
+                prop={"size": self.legend_config.fontsize},
+                bbox_to_anchor=self.legend_config.bbox_to_anchor,
                 ncol=ncol,
             )
 
-            legend.get_title().set_fontsize(str(self.legend.fontsize))
+            legend.get_title().set_fontsize(str(self.legend_config.fontsize))
 
     def _modify_x_range(
         self, x_range: Tuple[float, float], padding: Tuple[float, float] | None = None
@@ -294,12 +294,12 @@ class MATPLOTLIBChromatogramPlot(MATPLOTLIB_MSPlot, ChromatogramPlot):
         Returns:
             None
         """
-        if self.by is not None and self.legend.show:
+        if self.by is not None and self.legend_config.show:
             legend = self.fig.get_legend()
             self.fig.add_artist(legend)
 
         color_gen = ColorGenerator(
-            colormap=self.feature_config.colormap, n=annotation_data.shape[0]
+            colormap=self.annotation_config.colormap, n=annotation_data.shape[0]
         )
 
         legend_items = []
@@ -310,17 +310,17 @@ class MATPLOTLIBChromatogramPlot(MATPLOTLIB_MSPlot, ChromatogramPlot):
                 x=feature["leftWidth"],
                 ymin=0,
                 ymax=self.data[self.y].max(),
-                lw=self.feature_config.line_width,
+                lw=self.annotation_config.line_width,
                 color=use_color,
-                ls=self.feature_config.line_type,
+                ls=self.annotation_config.line_type,
             )
             self.fig.vlines(
                 x=feature["rightWidth"],
                 ymin=0,
                 ymax=self.data[self.y].max(),
-                lw=self.feature_config.line_width,
+                lw=self.annotation_config.line_width,
                 color=use_color,
-                ls=self.feature_config.line_type,
+                ls=self.annotation_config.line_type,
             )
             legend_items.append(left_vlne)
 
@@ -334,17 +334,17 @@ class MATPLOTLIBChromatogramPlot(MATPLOTLIB_MSPlot, ChromatogramPlot):
                 cur_legend_labels = f"{use_name}"
             legend_labels.append(cur_legend_labels)
 
-        if self.feature_config.legend.show:
+        if self.annotation_config.legend_config.show:
             matplotlibLegendLoc = LegendConfig._matplotlibLegendLocationMapper(
-                self.feature_config.legend.loc
+                self.annotation_config.legend_config.loc
             )
             self.fig.legend(
                 legend_items,
                 legend_labels,
                 loc=matplotlibLegendLoc,
-                title=self.feature_config.legend.title,
-                prop={"size": self.feature_config.legend.fontsize},
-                bbox_to_anchor=self.feature_config.legend.bbox_to_anchor,
+                title=self.annotation_config.legend_config.title,
+                prop={"size": self.annotation_config.legend_config.fontsize},
+                bbox_to_anchor=self.annotation_config.legend_config.bbox_to_anchor,
             )
 
         # since matplotlib is not interactive cannot implement the following methods
@@ -425,10 +425,10 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
         y_config.xlabel = self.zlabel
         y_config.ylabel = self.ylabel
         y_config.y_axis_location = "left"
-        y_config.legend.show = True
-        y_config.legend.loc = "below"
-        y_config.legend.orientation = "horizontal"
-        y_config.legend.bbox_to_anchor = (1, -0.4)
+        y_config.legend_config.show = True
+        y_config.legend_config.loc = "below"
+        y_config.legend_config.orientation = "horizontal"
+        y_config.legend_config.bbox_to_anchor = (1, -0.4)
 
         # remove legend from class_kwargs to update legend args for y axis plot
         class_kwargs.pop("legend", None)
@@ -490,7 +490,7 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
             self.fig.add_artist(legend)
 
         color_gen = ColorGenerator(
-            colormap=self.feature_config.colormap, n=annotation_data.shape[0]
+            colormap=self.annotation_config.colormap, n=annotation_data.shape[0]
         )
         legend_items = []
 
@@ -511,8 +511,8 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
                 height,
                 fill=False,
                 edgecolor=color,
-                linestyle=self.feature_config.line_type,
-                linewidth=self.feature_config.line_width,
+                linestyle=self.annotation_config.line_type,
+                linewidth=self.annotation_config.line_width,
             )
             self.fig.add_patch(custom_lines)
 
@@ -526,17 +526,17 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
                 legend_labels = f"{use_name}"
 
         # Add legend
-        if self.feature_config.legend.show:
+        if self.annotation_config.legend_config.show:
             matplotlibLegendLoc = LegendConfig._matplotlibLegendLocationMapper(
-                self.feature_config.legend.loc
+                self.annotation_config.legend_config.loc
             )
             self.fig.legend(
                 [custom_lines],
                 [legend_labels],
                 loc=matplotlibLegendLoc,
-                title=self.feature_config.legend.title,
-                prop={"size": self.feature_config.legend.fontsize},
-                bbox_to_anchor=self.feature_config.legend.bbox_to_anchor,
+                title=self.annotation_config.legend_config.title,
+                prop={"size": self.annotation_config.legend_config.fontsize},
+                bbox_to_anchor=self.annotation_config.legend_config.bbox_to_anchor,
             )
 
     # since matplotlib is not interactive cannot implement the following methods

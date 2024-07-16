@@ -69,9 +69,9 @@ class PLOTLYPlot(BasePlot, ABC):
         Update the plot aesthetics.
         """
         fig.update_layout(
-            legend_title=self.legend.title,
-            legend_font_size=self.legend.fontsize,
-            showlegend=self.legend.show,
+            legend_title=self.legend_config.title,
+            legend_font_size=self.legend_config.fontsize,
+            showlegend=self.legend_config.show,
         )
 
         # Update to look similar to Bokeh theme
@@ -371,7 +371,7 @@ class PLOTLYChromatogramPlot(PLOTLY_MSPlot, ChromatogramPlot):
 
     def _add_peak_boundaries(self, annotation_data, **kwargs):
         color_gen = ColorGenerator(
-            colormap=self.feature_config.colormap, n=annotation_data.shape[0]
+            colormap=self.annotation_config.colormap, n=annotation_data.shape[0]
         )
         for idx, (_, feature) in enumerate(annotation_data.iterrows()):
             if "q_value" in annotation_data.columns:
@@ -392,9 +392,9 @@ class PLOTLYChromatogramPlot(PLOTLY_MSPlot, ChromatogramPlot):
                     line=dict(
                         color=next(color_gen),
                         dash=bokeh_line_dash_mapper(
-                            self.feature_config.line_type, "plotly"
+                            self.annotation_config.line_type, "plotly"
                         ),
-                        width=self.feature_config.line_width,
+                        width=self.annotation_config.line_width,
                     ),
                     name=legend_label,
                 )
@@ -549,7 +549,7 @@ class PLOTLYFeatureHeatmapPlot(PLOTLY_MSPlot, FeatureHeatmapPlot):
 
     def _add_box_boundaries(self, annotation_data, **kwargs):
         color_gen = ColorGenerator(
-            colormap=self.feature_config.colormap, n=annotation_data.shape[0]
+            colormap=self.annotation_config.colormap, n=annotation_data.shape[0]
         )
         for idx, (_, feature) in enumerate(annotation_data.iterrows()):
             x0 = feature["leftWidth"]
@@ -582,9 +582,9 @@ class PLOTLYFeatureHeatmapPlot(PLOTLY_MSPlot, FeatureHeatmapPlot):
                     opacity=0.5,
                     line=dict(
                         color=color,
-                        width=self.feature_config.line_width,
+                        width=self.annotation_config.line_width,
                         dash=bokeh_line_dash_mapper(
-                            self.feature_config.line_type, "plotly"
+                            self.annotation_config.line_type, "plotly"
                         ),
                     ),
                     name=legend_label,
