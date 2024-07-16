@@ -124,25 +124,25 @@ class LegendConfig:
 
 
 @dataclass(kw_only=True)
-class FeatureConfig:
+class AnnotationConfig:
     def default_legend_factory():
         return LegendConfig(title="Features", loc="right", bbox_to_anchor=(1.5, 0.5))
 
     colormap: str = "viridis"
     line_width: float = 1
     line_type: str = "solid"
-    legend: LegendConfig = field(default_factory=default_legend_factory)
+    legend_config: LegendConfig = field(default_factory=default_legend_factory)
 
     @classmethod
-    def from_dict(cls, feature_dict: Dict[str, Any]) -> "FeatureConfig":
+    def from_dict(cls, feature_dict: Dict[str, Any]) -> "AnnotationConfig":
         """
-        Convert a dictionary to a FeatureConfig instance.
+        Convert a dictionary to a AnnotationConfig instance.
 
         Args:
         feature_dict (Dict[str, Any]): Dictionary containing feature configuration.
 
         Returns:
-        FeatureConfig: An instance of FeatureConfig with the specified settings.
+        AnnotationConfig: An instance of AnnotationConfig with the specified settings.
         """
         # Extract the legend dictionary if it exists
         legend_dict = feature_dict.pop("legend", None)
@@ -193,8 +193,8 @@ class _BasePlotConfig(ABC):
     line_width: float = 1
     toolbar_location: str = "above"
 
-    legend: LegendConfig = field(default_factory=default_legend_factory)
-    feature_config: FeatureConfig = field(default_factory=FeatureConfig)
+    legend_config: LegendConfig = field(default_factory=default_legend_factory)
+    annotation_config: AnnotationConfig = field(default_factory=AnnotationConfig)
 
     def __post_init__(self):
         # Update default plot labels based on the kind of plot

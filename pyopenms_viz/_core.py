@@ -10,7 +10,7 @@ from pandas.core.dtypes.generic import ABCDataFrame
 from pandas.core.dtypes.common import is_integer
 from pandas.util._decorators import Appender
 
-from ._config import LegendConfig, FeatureConfig, _BasePlotConfig
+from ._config import LegendConfig, AnnotationConfig, _BasePlotConfig
 from ._misc import ColorGenerator
 from dataclasses import dataclass, field
 
@@ -132,29 +132,39 @@ class BasePlot(ABC):
     line_width: float | None = None
     show_plot: bool | None = None
 
+    # Private
+    x_axis_location: str | None = None
+    y_axis_location: str | None = None
+
     # Configurations
-    legend_config: LegendConfig | Dict = field(default_factory=LegendConfig)
-    annotation_config: FeatureConfig | Dict = field(default_factory=FeatureConfig)
+    legend_config: LegendConfig | Dict | None = None
+    annotation_config: AnnotationConfig | Dict | None = None
     _config: _BasePlotConfig | None = None
 
+    # Note priority is keyword arguments > config > default values
+    # This allows for plots to have their own default configurations which can be overridden by the user
     def __post_init__(self):
         self.data = self.data.copy()
         if self._config is not None:
             self._update_from_config(self._config)
 
-        if self.legend_config is not None and isinstance(self.legend_config, dict):
-            self.legend_config = LegendConfig.from_dict(self.legend_config)
+        print("line 151:", self.legend_config)
 
-        if self.annotation_config is not None and isinstance(
-            self.annotation_config, dict
-        ):
-            self.annotation_config = FeatureConfig.from_dict(self.annotation_config)
+        if self.legend_config is not None:
+            if isinstance(self.legend_config, dict):
+                self.legend_config = LegendConfig.from_dict(self.legend_config)
+        else:
+            self.legend_config = LegendConfig()
 
-        self.legend = self.legend_config
+        if self.annotation_config is not None:
+            if isinstance(self.annotation_config, dict):
+                self.annotation_config = AnnotationConfig.from_dict(
+                    self.annotation_config
+                )
+        else:
+            self.annotation_config = AnnotationConfig()
 
-        # alias annotation_config = feature_config
-        self.feature_config = self.annotation_config
-
+        print("line 167:", self.legend_config)
         ### get x and y data
         if self._kind in {
             "line",
@@ -667,8 +677,8 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
         x_config = self._config.copy()
         x_config.ylabel = self.zlabel
         x_config.y_axis_location = "right"
-        x_config.legend.show = True
-        x_config.legend.loc = "right"
+        x_config.legend_config.show = True
+        x_config.legend_config.loc = "right"
 
         color_gen = ColorGenerator()
 
@@ -696,8 +706,8 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
         y_config.xlabel = self.zlabel
         y_config.ylabel = self.ylabel
         y_config.y_axis_location = "left"
-        y_config.legend.show = True
-        y_config.legend.loc = "below"
+        y_config.legend_config.show = True
+        y_config.legend_config.loc = "below"
 
         # remove legend from class_kwargs to update legend args for y axis plot
         class_kwargs.pop("legend", None)
@@ -705,6 +715,7 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
 
         color_gen = ColorGenerator()
 
+        print("plotting y marginal")
         y_plot_obj = self.get_line_renderer(
             y_data, z, y, by=self.by, _config=y_config, **class_kwargs
         )

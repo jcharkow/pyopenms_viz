@@ -59,6 +59,8 @@ class BOKEHPlot(BasePlot, ABC):
                 title=self.title,
                 x_axis_label=self.xlabel,
                 y_axis_label=self.ylabel,
+                x_axis_location=self.x_axis_location,
+                y_axis_location=self.y_axis_location,
                 width=self.width,
                 height=self.height,
             )
@@ -74,12 +76,12 @@ class BOKEHPlot(BasePlot, ABC):
         """
         Add the legend
         """
-        if self.legend.show:
-            fig.add_layout(legend, self.legend.loc)
-            fig.legend.orientation = self.legend.orientation
-            fig.legend.click_policy = self.legend.onClick
-            fig.legend.title = self.legend.title
-            fig.legend.label_text_font_size = str(self.legend.fontsize) + "pt"
+        if self.legend_config.show:
+            fig.add_layout(legend, self.legend_config.loc)
+            fig.legend.orientation = self.legend_config.orientation
+            fig.legend.click_policy = self.legend_config.onClick
+            fig.legend.title = self.legend_config.title
+            fig.legend.label_text_font_size = str(self.legend_config.fontsize) + "pt"
 
     def _add_tooltips(self, fig, tooltips, custom_hover_data=None):
         """
@@ -347,7 +349,7 @@ class BOKEHChromatogramPlot(BOKEH_MSPlot, ChromatogramPlot):
             None
         """
         color_gen = ColorGenerator(
-            colormap=self.feature_config.colormap, n=annotation_data.shape[0]
+            colormap=self.annotation_config.colormap, n=annotation_data.shape[0]
         )
         legend_items = []
         for idx, (_, feature) in enumerate(annotation_data.iterrows()):
@@ -357,8 +359,8 @@ class BOKEHChromatogramPlot(BOKEH_MSPlot, ChromatogramPlot):
                 x1=[feature["leftWidth"], feature["rightWidth"]],
                 y1=[feature["apexIntensity"], feature["apexIntensity"]],
                 color=next(color_gen),
-                line_dash=self.feature_config.line_type,
-                line_width=self.feature_config.line_width,
+                line_dash=self.annotation_config.line_type,
+                line_width=self.annotation_config.line_width,
             )
             if "name" in annotation_data.columns:
                 use_name = feature["name"]
@@ -370,15 +372,15 @@ class BOKEHChromatogramPlot(BOKEH_MSPlot, ChromatogramPlot):
                 legend_label = f"{use_name}"
             legend_items.append((legend_label, [peak_boundary_lines]))
 
-        if self.feature_config.legend.show:
+        if self.annotation_config.legend_config.show:
             legend = Legend(items=legend_items)
-            legend.click_policy = self.feature_config.legend.onClick
-            legend.title = self.feature_config.legend.title
-            legend.orientation = self.feature_config.legend.orientation
+            legend.click_policy = self.annotation_config.legend_config.onClick
+            legend.title = self.annotation_config.legend_config.title
+            legend.orientation = self.annotation_config.legend_config.orientation
             legend.label_text_font_size = (
-                str(self.feature_config.legend.fontsize) + "pt"
+                str(self.annotation_config.legend_config.fontsize) + "pt"
             )
-            self.fig.add_layout(legend, self.feature_config.legend.loc)
+            self.fig.add_layout(legend, self.annotation_config.legend_config.loc)
 
     def get_manual_bounding_box_coords(self):
         # Get the original data source
@@ -489,7 +491,7 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
 
     def _add_box_boundaries(self, annotation_data):
         color_gen = ColorGenerator(
-            colormap=self.feature_config.colormap, n=annotation_data.shape[0]
+            colormap=self.annotation_config.colormap, n=annotation_data.shape[0]
         )
         legend_items = []
         for idx, (_, feature) in enumerate(annotation_data.iterrows()):
@@ -510,8 +512,8 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
                 width=width,
                 height=height,
                 color=next(color_gen),
-                line_dash=self.feature_config.line_type,
-                line_width=self.feature_config.line_width,
+                line_dash=self.annotation_config.line_type,
+                line_width=self.annotation_config.line_width,
                 fill_alpha=0,
             )
             if "name" in annotation_data.columns:
@@ -524,12 +526,12 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
                 legend_label = f"{use_name}"
             legend_items.append((legend_label, [box_boundary_lines]))
 
-        if self.feature_config.legend.show:
+        if self.annotation_config.legend.show:
             legend = Legend(items=legend_items)
-            legend.click_policy = self.feature_config.legend.onClick
-            legend.title = self.feature_config.legend.title
-            legend.orientation = self.feature_config.legend.orientation
+            legend.click_policy = self.annotation_config.legend_config.onClick
+            legend.title = self.annotation_config.legend_config.title
+            legend.orientation = self.annotation_config.legend_config.orientation
             legend.label_text_font_size = (
-                str(self.feature_config.legend.fontsize) + "pt"
+                str(self.annotation_config.legend_config.fontsize) + "pt"
             )
-            self.fig.add_layout(legend, self.feature_config.legend.loc)
+            self.fig.add_layout(legend, self.annotation_config.legend_config.loc)
