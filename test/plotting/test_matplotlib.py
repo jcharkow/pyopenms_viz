@@ -31,9 +31,18 @@ def load_backend():
     pd.set_option("plotting.backend", "ms_matplotlib")
 
 
-@pytest.mark.parametrize("kwargs", [dict()])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        dict(),
+        dict(by="Annotation"),
+        dict(scale_intensity=True),
+        dict(by="Annotation", scale_intensity=True),
+        dict(xlabel="RETENTION", ylabel="INTENSITY"),
+        dict(grid=True),
+    ],
+)
 def test_chromatogram_plot_mpl(raw_data, snapshot_mpl, kwargs):
-    kwargs = {}
     out = raw_data.plot(x="rt", y="int", kind="chromatogram", show_plot=False, **kwargs)
 
     assert snapshot_mpl == out.superFig
