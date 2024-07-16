@@ -178,17 +178,12 @@ class _BasePlotConfig(ABC):
     title: str = "1D Plot"
     xlabel: str = "X-axis"
     ylabel: str = "Y-axis"
-    min_border: str = 0
-    engine: Literal["PLOTLY", "BOKEH", "MATPLOTLIB"] = "PLOTLY"
     height: int = 500
     width: int = 500
     relative_intensity: bool = False
     show_legend: bool = True
     show_plot: bool = True
-    colormap: str = "viridis"
     grid: bool = True
-    line_type: str = "solid"
-    line_width: float = 1
     toolbar_location: str = "above"
 
     legend_config: LegendConfig = field(default_factory=default_legend_factory)
@@ -197,10 +192,6 @@ class _BasePlotConfig(ABC):
     def __post_init__(self):
         # Update default plot labels based on the kind of plot
         self.set_plot_labels()
-
-    @property
-    def engine_enum(self):
-        return Engine[self.engine]
 
     def copy(self):
         return deepcopy(self)
