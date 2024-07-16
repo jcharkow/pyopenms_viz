@@ -59,11 +59,8 @@ class BOKEHPlot(BasePlot, ABC):
                 title=self.title,
                 x_axis_label=self.xlabel,
                 y_axis_label=self.ylabel,
-                x_axis_location=self.x_axis_location,
-                y_axis_location=self.y_axis_location,
                 width=self.width,
                 height=self.height,
-                min_border=self.min_border,
             )
 
     def _update_plot_aes(self, fig, **kwargs):

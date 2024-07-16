@@ -12,6 +12,7 @@ from pandas.util._decorators import Appender
 
 from ._config import LegendConfig, FeatureConfig, _BasePlotConfig
 from ._misc import ColorGenerator
+from dataclasses import dataclass, field
 
 
 _common_kinds = ("line", "vline", "scatter")
@@ -91,81 +92,68 @@ _baseplot_doc = f"""
 APPEND_PLOT_DOC = Appender(_baseplot_doc)
 
 
+@dataclass
 class BasePlot(ABC):
     """
     This class shows functions which must be implemented by all backends
     """
 
-    def __init__(
-        self,
-        data,
-        x: str | None = None,
-        y: str | None = None,
-        z: str | None = None,
-        kind=None,
-        by: str | None = None,
-        relative_intensity: bool = False,
-        subplots: bool | None = None,
-        sharex: bool | None = None,
-        sharey: bool | None = None,
-        height: int | None = None,
-        width: int | None = None,
-        grid: bool | None = None,
-        toolbar_location: str | None = None,
-        fig: "figure" | None = None,
-        title: str | None = None,
-        xlabel: str | None = None,
-        ylabel: str | None = None,
-        x_axis_location: str | None = None,
-        y_axis_location: str | None = None,
-        line_type: str | None = None,
-        line_width: float | None = None,
-        min_border: int | None = None,
-        show_plot: bool | None = None,
-        legend: LegendConfig | Dict | None = None,
-        feature_config: FeatureConfig | Dict | None = None,
-        _config: _BasePlotConfig | None = None,
-        **kwargs,
-    ) -> None:
+    # Data Attributes
+    data: DataFrame
+    x: str | None = None
+    y: str | None = None
+    z: str | None = None
+    kind: (
+        Literal[
+            "line",
+            "vline",
+            "scatter",
+            "chromatogram",
+            "mobilogram",
+            "spectrum",
+            "feature_heatmap",
+            "complex",
+        ]
+        | None
+    ) = None
+    by: str | None = None
+    relative_intensity: bool = False
 
-        # Data attributes
-        self.data = data.copy()
-        self.kind = kind
-        self.by = by
-        self.relative_intensity = relative_intensity
+    # Plotting Attributes
+    height: int | None = None
+    width: int | None = None
+    grid: bool | None = None
+    toolbar_location: str | None = None
+    fig: "figure" | None = None
+    title: str | None = None
+    xlabel: str | None = None
+    ylabel: str | None = None
+    line_type: str | None = None
+    line_width: float | None = None
+    show_plot: bool | None = None
 
-        # Plotting attributes
-        self.subplots = subplots
-        self.sharex = sharex
-        self.sharey = sharey
-        self.height = height
-        self.width = width
-        self.grid = grid
-        self.toolbar_location = toolbar_location
-        self.fig = fig
-        self.title = title
-        self.xlabel = xlabel
-        self.ylabel = ylabel
-        self.x_axis_location = x_axis_location
-        self.y_axis_location = y_axis_location
-        self.line_type = line_type
-        self.line_width = line_width
-        self.min_border = min_border
-        self.show_plot = show_plot
+    # Configurations
+    legend_config: LegendConfig | Dict = field(default_factory=LegendConfig)
+    annotation_config: FeatureConfig | Dict = field(default_factory=FeatureConfig)
+    _config: _BasePlotConfig | None = None
 
-        self.legend = legend
-        self.feature_config = feature_config
+    def __post_init__(self):
+        self.data = self.data.copy()
+        if self._config is not None:
+            self._update_from_config(self._config)
 
-        self._config = _config
+        if self.legend_config is not None and isinstance(self.legend_config, dict):
+            self.legend_config = LegendConfig.from_dict(self.legend_config)
 
-        if _config is not None:
-            self._update_from_config(_config)
+        if self.annotation_config is not None and isinstance(
+            self.annotation_config, dict
+        ):
+            self.annotation_config = FeatureConfig.from_dict(self.annotation_config)
 
-        if self.legend is not None and isinstance(self.legend, dict):
-            self.legend = LegendConfig.from_dict(self.legend)
+        self.legend = self.legend_config
 
-        if self.feature_config is not None and isinstance(self.feature_config, dict):
-            self.feature_config = FeatureConfig.from_dict(self.feature_config)
+        # alias annotation_config = feature_config
+        self.feature_config = self.annotation_config
 
         ### get x and y data
         if self._kind in {
@@ -178,15 +166,15 @@ class BasePlot(ABC):
             "feature_heatmap",
             "complex",
         }:
-            self.x = self._verify_column(x, "x")
-            self.y = self._verify_column(y, "y")
+            self.x = self._verify_column(self.x, "x")
+            self.y = self._verify_column(self.y, "y")
 
         if self._kind in {"feature_heatmap"}:
-            self.z = self._verify_column(z, "z")
+            self.z = self._verify_column(self.z, "z")
 
         if self.by is not None:
             # Ensure by column data is string
-            self.by = self._verify_column(by, "by")
+            self.by = self._verify_column(self.by, "by")
             self.data[self.by] = self.data[self.by].astype(str)
 
         self._load_extension()
@@ -231,6 +219,9 @@ class BasePlot(ABC):
 
         # checks passed return column name
         return colname
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(kind={self._kind}, data=DataFrame({self.data.shape[0]} rows {self.data.shape[1]} columns), x={self.x}, y={self.y}, by={self.by})"
 
     @property
     @abstractmethod
