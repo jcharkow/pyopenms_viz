@@ -55,8 +55,6 @@ _baseplot_doc = f"""
         The title of the plot.
     xlabel, ylabel : str or None, optional
         Labels for the x and y axes.
-    x_axis_location, y_axis_location : str or None, optional
-        The location of the x and y axes (e.g., 'bottom', 'top', 'left', 'right').
     line_type : str or None, optional
         The type of line to use (e.g., 'solid', 'dashed', 'dotted').
     line_width : float or None, optional
@@ -131,10 +129,6 @@ class BasePlot(ABC):
     line_type: str | None = None
     line_width: float | None = None
     show_plot: bool | None = None
-
-    # Private
-    x_axis_location: str | None = None
-    y_axis_location: str | None = None
 
     # Configurations
     legend_config: LegendConfig | Dict | None = None
