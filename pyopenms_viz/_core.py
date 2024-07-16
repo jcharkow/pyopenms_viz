@@ -142,8 +142,6 @@ class BasePlot(ABC):
         if self._config is not None:
             self._update_from_config(self._config)
 
-        print("line 151:", self.legend_config)
-
         if self.legend_config is not None:
             if isinstance(self.legend_config, dict):
                 self.legend_config = LegendConfig.from_dict(self.legend_config)
@@ -158,7 +156,6 @@ class BasePlot(ABC):
         else:
             self.annotation_config = AnnotationConfig()
 
-        print("line 167:", self.legend_config)
         ### get x and y data
         if self._kind in {
             "line",
@@ -209,7 +206,6 @@ class BasePlot(ABC):
         # if integer is supplied get the corresponding column associated with that index
         if is_integer(colname) and not holds_integer(self.data.columns):
             if colname >= len(self.data.columns):
-                print(self.data.columns)
                 raise ValueError(
                     f"Column index `{colname}` out of range, `{name}` could not be set"
                 )
@@ -709,7 +705,6 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
 
         color_gen = ColorGenerator()
 
-        print("plotting y marginal")
         y_plot_obj = self.get_line_renderer(
             y_data, z, y, by=self.by, _config=y_config, **class_kwargs
         )
