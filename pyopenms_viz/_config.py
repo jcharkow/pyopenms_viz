@@ -134,7 +134,7 @@ class AnnotationConfig:
     legend_config: LegendConfig = field(default_factory=default_legend_factory)
 
     @classmethod
-    def from_dict(cls, feature_dict: Dict[str, Any]) -> "AnnotationConfig":
+    def from_dict(cls, annotation_dict: Dict[str, Any]) -> "AnnotationConfig":
         """
         Convert a dictionary to a AnnotationConfig instance.
 
@@ -145,7 +145,7 @@ class AnnotationConfig:
         AnnotationConfig: An instance of AnnotationConfig with the specified settings.
         """
         # Extract the legend dictionary if it exists
-        legend_dict = feature_dict.pop("legend", None)
+        legend_dict = annotation_dict.pop("legend_config", None)
 
         # Create the LegendConfig instance if legend_dict is provided
         if legend_dict:
@@ -158,11 +158,11 @@ class AnnotationConfig:
             "colormap": "viridis",
             "line_width": 1,
             "line_type": "solid",
-            "legend": legend_config,
+            "legend_config": legend_config,
         }
 
         # Update with provided values
-        config.update(feature_dict)
+        config.update(annotation_dict)
 
         # Create and return the FeatureConfig instance
         return cls(**config)
@@ -181,7 +181,6 @@ class _BasePlotConfig(ABC):
     height: int = 500
     width: int = 500
     relative_intensity: bool = False
-    show_legend: bool = True
     show_plot: bool = True
     grid: bool = True
     toolbar_location: str = "above"

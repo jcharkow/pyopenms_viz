@@ -12,8 +12,7 @@ from pandas.util._decorators import Appender
 
 from ._config import LegendConfig, AnnotationConfig, _BasePlotConfig
 from ._misc import ColorGenerator
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass, asdict
 
 _common_kinds = ("line", "vline", "scatter")
 _msdata_kinds = ("chromatogram", "mobilogram", "spectrum", "feature_heatmap")
@@ -156,6 +155,8 @@ class BasePlot(ABC):
         else:
             self.annotation_config = AnnotationConfig()
 
+        self.update_config()  # update config based on kwargs
+
         ### get x and y data
         if self._kind in {
             "line",
@@ -255,6 +256,13 @@ class BasePlot(ABC):
                 and self.__dict__[attr] is None
             ):
                 setattr(self, attr, value)
+
+    def update_config(self) -> None:
+        """
+        Update the _config object based on the provided kwargs. This means that the _config will store an accurate representation of the parameters
+        """
+        for attr in self._config.__dict__.keys():
+            setattr(self._config, attr, self.__dict__[attr])
 
     def _separate_class_kwargs(self, **kwargs):
         """
@@ -497,6 +505,7 @@ class SpectrumPlot(BaseMSPlot, ABC):
         data,
         x,
         y,
+        by,
         reference_spectrum: DataFrame | None = None,
         mirror_spectrum: bool = False,
         **kwargs,
@@ -510,11 +519,11 @@ class SpectrumPlot(BaseMSPlot, ABC):
         self.reference_spectrum = reference_spectrum
         self.mirror_spectrum = mirror_spectrum
 
-        self.plot(x, y, **kwargs)
+        self.plot(x, y, by)
         if self.show_plot:
             self.show()
 
-    def plot(self, x, y, **kwargs):
+    def plot(self, x, y, by=None):
 
         spectrum, reference_spectrum = self._prepare_data(
             self.data, y, self.reference_spectrum
@@ -524,10 +533,9 @@ class SpectrumPlot(BaseMSPlot, ABC):
 
         TOOLTIPS, custom_hover_data = self._create_tooltips()
 
-        kwargs.pop(
-            "fig", None
-        )  # remove figure from **kwargs if exists, use the ChromatogramPlot figure object instead of creating a new figure
-        spectrumPlot = self.get_vline_renderer(spectrum, x, y, fig=self.fig, **kwargs)
+        spectrumPlot = self.get_vline_renderer(
+            spectrum, x, y, by=by, fig=self.fig, _config=self._config
+        )
         self.fig = spectrumPlot.generate(
             line_color=color_gen, tooltips=TOOLTIPS, custom_hover_data=custom_hover_data
         )
@@ -536,12 +544,9 @@ class SpectrumPlot(BaseMSPlot, ABC):
             ## create a mirror spectrum
             color_gen_mirror = ColorGenerator()
             reference_spectrum[y] = reference_spectrum[y] * -1
-            if "fig" in kwargs.keys():
-                kwargs.pop(
-                    "fig"
-                )  # remove figure object from kwargs, use the same figure as above
+
             mirror_spectrum = self.get_vline_renderer(
-                reference_spectrum, x, y, fig=self.fig, **kwargs
+                reference_spectrum, x, y, by=by, fig=self.fig, _config=self._config
             )
             mirror_spectrum.generate(line_color=color_gen_mirror)
             self.plot_x_axis_line(self.fig)
