@@ -414,8 +414,10 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
     Class for assembling a Bokeh feature heatmap plot
     """
 
-    def create_main_plot(self, x, y, z, class_kwargs, other_kwargs):
-        scatterPlot = self.get_scatter_renderer(self.data, x, y, **class_kwargs)
+    def create_main_plot(self, x, y, z, by):
+        scatterPlot = self.get_scatter_renderer(
+            self.data, x, y, by=by, _config=self._config
+        )
         mapper = linear_cmap(
             field_name=z,
             palette=Plasma256[::-1],
@@ -424,14 +426,15 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
         )
 
         self.fig = scatterPlot.generate(
-            marker="square", line_color=mapper, fill_color=mapper, **other_kwargs
+            marker="square", line_color=mapper, fill_color=mapper
         )
 
+        print(self._config)
         if self.annotation_data is not None:
             self._add_box_boundaries(self.annotation_data)
 
-    def create_x_axis_plot(self, x, z, class_kwargs):
-        x_fig = super().create_x_axis_plot(x, z, class_kwargs)
+    def create_x_axis_plot(self, x, z, by):
+        x_fig = super().create_x_axis_plot(x, z, by)
 
         # Modify plot
         x_fig.x_range = self.fig.x_range
@@ -440,8 +443,8 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
         x_fig.min_border = 0
         return x_fig
 
-    def create_y_axis_plot(self, y, z, class_kwargs):
-        y_fig = super().create_y_axis_plot(y, z, class_kwargs)
+    def create_y_axis_plot(self, y, z, by):
+        y_fig = super().create_y_axis_plot(y, z, by)
 
         # Modify plot
         y_fig.y_range = self.fig.y_range
@@ -458,9 +461,6 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
         from bokeh.layouts import gridplot
 
         self.fig = gridplot([[None, x_fig], [y_fig, self.fig]])
-
-    def get_scatter_renderer(self, data, x, y, **kwargs):
-        return BOKEHScatterPlot(data, x, y, **kwargs)
 
     def get_manual_bounding_box_coords(self):
         # Get the original data source

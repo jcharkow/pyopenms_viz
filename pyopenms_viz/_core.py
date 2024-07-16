@@ -438,20 +438,19 @@ class ChromatogramPlot(BaseMSPlot, ABC):
             self.annotation_data = None
         self.label_suffix = self.x  # set label suffix for bounding box
 
-        self.plot(self.data, self.x, self.y, **kwargs)
+        self.plot(self.data, self.x, self.y, self.by)
         if self.show_plot:
             self.show()
 
-    def plot(self, data, x, y, **kwargs):
+    def plot(self, data, x, y, by=None):
         """
         Create the plot
         """
         color_gen = ColorGenerator()
         TOOLTIPS, custom_hover_data = self._create_tooltips()
-        kwargs.pop(
-            "fig", None
-        )  # remove figure from **kwargs if exists, use the ChromatogramPlot figure object instead of creating a new figure
-        linePlot = self.get_line_renderer(data, x, y, fig=self.fig, **kwargs)
+        linePlot = self.get_line_renderer(
+            data, x, y, by=by, fig=self.fig, _config=self._config
+        )
         self.fig = linePlot.generate(
             line_color=color_gen, tooltips=TOOLTIPS, custom_hover_data=custom_hover_data
         )
@@ -490,8 +489,8 @@ class MobilogramPlot(ChromatogramPlot, ABC):
     ) -> None:
         super().__init__(data, x, y, annotation_data=annotation_data, **kwargs)
 
-    def plot(self, data, x, y, **kwargs):
-        super().plot(data, x, y, **kwargs)
+    def plot(self, data, x, y, by=None):
+        super().plot(data, x, y, by=by)
         self._modify_y_range((0, self.data[y].max()), (0, 0.1))
 
 
@@ -609,31 +608,26 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
             self.annotation_data = None
         super().__init__(data, x, y, z=z, **kwargs)
 
-        self.plot(x, y, z, **kwargs)
+        self.plot(x, y, z, by=self.by)
         if self.show_plot:
             self.show()
 
-    def plot(self, x, y, z, **kwargs):
-        class_kwargs, other_kwargs = self._separate_class_kwargs(**kwargs)
+    def plot(self, x, y, z, by=None):
+        # class_kwargs, other_kwargs = self._separate_class_kwargs(**kwargs)
 
         if self.add_marginals:
-            self.create_main_plot_marginals(x, y, z, class_kwargs, other_kwargs)
+            self.create_main_plot_marginals(x, y, z, by)
         else:
-            self.create_main_plot(x, y, z, class_kwargs, other_kwargs)
+            self.create_main_plot(x, y, z, by)
 
         self.manual_bbox_renderer = (
             self._add_bounding_box_drawer(self.fig) if self._interactive else None
         )
 
         if self.add_marginals:
-            # remove 'config' from class_kwargs
-            class_kwargs_copy = class_kwargs.copy()
-            class_kwargs_copy.pop("_config", None)
-            class_kwargs_copy.pop("by", None)
+            x_fig = self.create_x_axis_plot(x, z, by)
 
-            x_fig = self.create_x_axis_plot(x, z, class_kwargs_copy)
-
-            y_fig = self.create_y_axis_plot(y, z, class_kwargs_copy)
+            y_fig = self.create_y_axis_plot(y, z, by)
 
             self.combine_plots(x_fig, y_fig)
 
@@ -653,15 +647,15 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
         return grouped
 
     @abstractmethod
-    def create_main_plot(self, x, y, z, class_kwargs, other_kwargs):
+    def create_main_plot(self, x, y, z, by):
         pass
 
     # by default the main plot with marginals is plotted the same way as the main plot unless otherwise specified
-    def create_main_plot_marginals(self, x, y, z, class_kwargs, other_kwargs):
-        self.create_main_plot(x, y, z, class_kwargs, other_kwargs)
+    def create_main_plot_marginals(self, x, y, z, by):
+        self.create_main_plot(x, y, z, by)
 
     @abstractmethod
-    def create_x_axis_plot(self, x, z, class_kwargs) -> "figure":
+    def create_x_axis_plot(self, x, z, by) -> "figure":
         # get cols to integrate over and exclude y and z
         group_cols = [x]
         if self.by is not None:
@@ -669,50 +663,40 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
 
         x_data = self._integrate_data_along_dim(self.data, group_cols, z)
 
+        # For x-axis - override these options set by the user for the marginal plot
         x_config = self._config.copy()
         x_config.ylabel = self.zlabel
-        x_config.y_axis_location = "right"
         x_config.legend_config.show = True
         x_config.legend_config.loc = "right"
 
         color_gen = ColorGenerator()
 
-        # remove legend from class_kwargs to update legend args for x axis plot
-        class_kwargs.pop("legend", None)
-        class_kwargs.pop("ylabel", None)
+        x_plot_obj = self.get_line_renderer(x_data, x, z, by=by, _config=x_config)
+        print("x plot config")
+        print(x_plot_obj._config)
 
-        x_plot_obj = self.get_line_renderer(
-            x_data, x, z, by=self.by, _config=x_config, **class_kwargs
-        )
         x_fig = x_plot_obj.generate(line_color=color_gen)
         self.plot_x_axis_line(x_fig)
 
         return x_fig
 
     @abstractmethod
-    def create_y_axis_plot(self, y, z, class_kwargs) -> "figure":
+    def create_y_axis_plot(self, y, z, by) -> "figure":
         group_cols = [y]
-        if self.by is not None:
-            group_cols.append(self.by)
+        if by is not None:
+            group_cols.append(by)
 
         y_data = self._integrate_data_along_dim(self.data, group_cols, z)
 
         y_config = self._config.copy()
         y_config.xlabel = self.zlabel
         y_config.ylabel = self.ylabel
-        y_config.y_axis_location = "left"
         y_config.legend_config.show = True
         y_config.legend_config.loc = "below"
 
-        # remove legend from class_kwargs to update legend args for y axis plot
-        class_kwargs.pop("legend", None)
-        class_kwargs.pop("xlabel", None)
-
         color_gen = ColorGenerator()
 
-        y_plot_obj = self.get_line_renderer(
-            y_data, z, y, by=self.by, _config=y_config, **class_kwargs
-        )
+        y_plot_obj = self.get_line_renderer(y_data, z, y, by=by, _config=y_config)
         y_fig = y_plot_obj.generate(line_color=color_gen)
         self.plot_x_axis_line(y_fig)
 
