@@ -178,6 +178,7 @@ class _BasePlotConfig(ABC):
     title: str = "1D Plot"
     xlabel: str = "X-axis"
     ylabel: str = "Y-axis"
+    zlabel: str = "Z-axis"
     height: int = 500
     width: int = 500
     relative_intensity: bool = False
@@ -215,10 +216,11 @@ class _BasePlotConfig(ABC):
                 "xlabel": "mass-to-charge",
                 "ylabel": "Intensity",
             },
-            "feature_heatmap": {
-                "title": "PeakMap of mass-to-charge vs. retention time",
+            "peakmap": {
+                "title": "PeakMap",
                 "xlabel": "Retention Time",
                 "ylabel": "mass-to-charge",
+                "zlabel": "Intensity",
             },
             # Add more plot types as needed
         }
@@ -227,6 +229,8 @@ class _BasePlotConfig(ABC):
             self.title = plot_configs[self.kind]["title"]
             self.xlabel = plot_configs[self.kind]["xlabel"]
             self.ylabel = plot_configs[self.kind]["ylabel"]
+            if self.kind == "peakmap":
+                self.zlabel = plot_configs[self.kind]["zlabel"]
 
             if self.relative_intensity and "Intensity" in self.ylabel:
                 self.ylabel = "Relative " + self.ylabel
