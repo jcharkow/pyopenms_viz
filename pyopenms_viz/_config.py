@@ -198,8 +198,7 @@ class SpectrumConfig(BaseConfig):
 
 @dataclass(kw_only=True)
 class PeakMapConfig(BaseConfig):
-    zlabel = None
-    add_marginals = False
+    add_marginals: bool = False
     y_kind = "spectrum"
     x_kind = "chromatogram"
     bin_peaks: Union[Literal["auto"], bool] = "auto"

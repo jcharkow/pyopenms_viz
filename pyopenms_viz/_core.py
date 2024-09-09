@@ -131,6 +131,7 @@ class BasePlot(ABC):
     title: str | None = None
     xlabel: str | None = None
     ylabel: str | None = None
+    zlabel: str | None = None
     line_type: str | None = None
     line_width: float | None = None
     show_plot: bool | None = None
@@ -154,26 +155,6 @@ class BasePlot(ABC):
                 self.legend_config = LegendConfig.from_dict(self.legend_config)
         else:
             self.legend_config = LegendConfig()
-
-        if self.plot_config is not None:
-            if self._kind == "spectrum":
-                self.plot_config = (
-                    SpectrumConfig.from_dict(self.plot_config)
-                    if isinstance(self.plot_config, dict)
-                    else SpectrumConfig()
-                )
-            elif self._kind in {"chromatogram", "mobilogram"}:
-                self.plot_config = (
-                    ChromatogramConfig.from_dict(self.plot_config)
-                    if isinstance(self.plot_config, dict)
-                    else ChromatogramConfig()
-                )
-            elif self._kind == "feature_heatmap":
-                self.plot_config = (
-                    PeakMapConfig.from_dict(self.plot_config)
-                    if isinstance(self.plot_config, dict)
-                    else PeakMapConfig()
-                )
 
         # update the base plot config based on kwargs
         self.update_config()
@@ -563,6 +544,7 @@ class SpectrumPlot(BaseMSPlot, ABC):
         kwargs["_config"] = _BasePlotConfig(kind=self._kind)
 
         super().__init__(data, x, y, **kwargs)
+        self.reference_spectrum = reference_spectrum
 
         self.plot(x, y, by=self.by)
         if self.show_plot:
@@ -585,7 +567,7 @@ class SpectrumPlot(BaseMSPlot, ABC):
             line_color=color_gen, tooltips=TOOLTIPS, custom_hover_data=custom_hover_data
         )
 
-        if self.mirror_spectrum and reference_spectrum is not None:
+        if self.plot_config.mirror_spectrum and reference_spectrum is not None:
             ## create a mirror spectrum
             color_gen_mirror = ColorGenerator()
             reference_spectrum[y] = reference_spectrum[y] * -1
@@ -611,7 +593,7 @@ class SpectrumPlot(BaseMSPlot, ABC):
         )
 
         # Convert to relative intensity if required
-        if self.relative_intensity or self.mirror_spectrum:
+        if self.relative_intensity or self.plot_config.mirror_spectrum:
             spectrum[y] = spectrum[y] / spectrum[y].max() * 100
             if reference_spectrum is not None:
                 reference_spectrum[y] = (
@@ -648,26 +630,21 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
         x,
         y,
         z,
-        zlabel=None,
-        add_marginals=False,
         annotation_data: DataFrame | None = None,
         **kwargs,
     ) -> None:
 
         # Set default config attributes if not passed as keyword arguments
         kwargs["_config"] = _BasePlotConfig(kind=self._kind)
+        super().__init__(data, x, y, z=z, **kwargs)
 
-        if add_marginals:
+        if self.plot_config.add_marginals:
             kwargs["_config"].title = None
-
-        self.zlabel = zlabel
-        self.add_marginals = add_marginals
 
         if annotation_data is not None:
             self.annotation_data = annotation_data.copy()
         else:
             self.annotation_data = None
-        super().__init__(data, x, y, z=z, **kwargs)
 
         self.plot(x, y, z, by=self.by)
         if self.show_plot:
@@ -676,7 +653,7 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
     def plot(self, x, y, z, by=None):
         # class_kwargs, other_kwargs = self._separate_class_kwargs(**kwargs)
 
-        if self.add_marginals:
+        if self.plot_config.add_marginals:
             self.create_main_plot_marginals(x, y, z, by)
         else:
             self.create_main_plot(x, y, z, by)
@@ -685,7 +662,7 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
             self._add_bounding_box_drawer(self.fig) if self._interactive else None
         )
 
-        if self.add_marginals:
+        if self.plot_config.add_marginals:
             x_fig = self.create_x_axis_plot(x, z, by)
 
             y_fig = self.create_y_axis_plot(y, z, by)
@@ -733,8 +710,6 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
         color_gen = ColorGenerator()
 
         x_plot_obj = self.get_line_renderer(x_data, x, z, by=by, _config=x_config)
-        print("x plot config")
-        print(x_plot_obj._config)
 
         x_fig = x_plot_obj.generate(line_color=color_gen)
         self.plot_x_axis_line(x_fig)
