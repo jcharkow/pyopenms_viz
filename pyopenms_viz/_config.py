@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Tuple, Literal, Dict, Any
+from dataclasses import dataclass, field, asdict
+from typing import Tuple, Literal, Dict, Any, Union
 from enum import Enum
 from copy import deepcopy
 
@@ -63,7 +63,31 @@ def bokeh_line_dash_mapper(bokeh_dash, target_library="plotly"):
 
 
 @dataclass(kw_only=True)
-class LegendConfig:
+class BaseConfig(ABC):
+
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "BaseConfig":
+        """
+        Convert a dictionary to a LegendConfig instance.
+
+        Args:
+        legend_dict (Dict[str, Any]): Dictionary containing legend configuration.
+
+        Returns:
+        BaseConfig: An child class from BaseConfig
+        """
+
+        config = asdict(cls())
+
+        # Update with provided values
+        config.update(config_dict)
+
+        # Create and return the LegendConfig instance
+        return cls(**config)
+
+
+@dataclass(kw_only=True)
+class LegendConfig(BaseConfig):
     loc: str = "right"
     orientation: str = "vertical"
     title: str = "Legend"
@@ -102,50 +126,42 @@ class LegendConfig:
         LegendConfig: An instance of LegendConfig with the specified settings.
         """
         # Create a dictionary with default values
-        config = {
-            "loc": "right",
-            "orientation": "vertical",
-            "title": "Legend",
-            "fontsize": 10,
-            "show": True,
-            "onClick": "mute",
-            "bbox_to_anchor": (1.2, 0.5),
-        }
-
-        # Update with provided values
-        config.update(legend_dict)
+        config = super().from_dict(legend_dict)
 
         # Ensure onClick is a valid value
-        if config["onClick"] not in ["hide", "mute"]:
-            config["onClick"] = "mute"
+        if config.onClick not in ["hide", "mute"]:
+            config.onClick = "mute"
 
-        # Create and return the LegendConfig instance
-        return cls(**config)
+        return config
 
 
 @dataclass(kw_only=True)
-class AnnotationConfig:
+class ChromatogramConfig(BaseConfig):
     def default_legend_factory():
         return LegendConfig(title="Features", loc="right", bbox_to_anchor=(1.5, 0.5))
 
-    colormap: str = "viridis"
-    line_width: float = 1
-    line_type: str = "solid"
-    legend_config: LegendConfig = field(default_factory=default_legend_factory)
+    annotation_colormap: str = "viridis"
+    annotation_line_width: float = 1
+    annotation_line_type: str = "solid"
+    annotation_legend_config: LegendConfig = field(
+        default_factory=default_legend_factory
+    )
 
     @classmethod
-    def from_dict(cls, annotation_dict: Dict[str, Any]) -> "AnnotationConfig":
+    def from_dict(
+        cls, chromatogram_config_dict: Dict[str, Any]
+    ) -> "ChromatogramConfig":
         """
-        Convert a dictionary to a AnnotationConfig instance.
+        Convert a dictionary to a ChromatogramConfig instance.
 
         Args:
         feature_dict (Dict[str, Any]): Dictionary containing feature configuration.
 
         Returns:
-        AnnotationConfig: An instance of AnnotationConfig with the specified settings.
+        ChromatogramConfig: An instance of ChromatogramConfig with the specified settings.
         """
         # Extract the legend dictionary if it exists
-        legend_dict = annotation_dict.pop("legend_config", None)
+        legend_dict = chromatogram_config_dict.pop("legend_config", None)
 
         # Create the LegendConfig instance if legend_dict is provided
         if legend_dict:
@@ -153,19 +169,44 @@ class AnnotationConfig:
         else:
             legend_config = cls.default_legend_factory()
 
-        # Create a dictionary with default values
-        config = {
-            "colormap": "viridis",
-            "line_width": 1,
-            "line_type": "solid",
-            "legend_config": legend_config,
-        }
+        config = super().from_dict(chromatogram_config_dict)
+        config.legend_config = legend_config
 
-        # Update with provided values
-        config.update(annotation_dict)
+        return config
 
-        # Create and return the FeatureConfig instance
-        return cls(**config)
+
+@dataclass(kw_only=True)
+class SpectrumConfig(BaseConfig):
+    mirror_spectrum: bool = False
+    peak_color: str | None = None
+
+    # Binning settings
+    bin_peaks: Union[Literal["auto"], bool] = "auto"
+    bin_method: Literal["none", "sturges", "freedman-diaconis"] = "freedman-diaconis"
+    num_x_bins: int = 50
+
+    # Annotation settings
+    annotate_top_n_peaks: int | None | Literal["all"] = (5,)
+    annotate_mz: bool = (True,)
+
+    # Columns for additional annotation
+    ion_annotation: str | None = None
+    sequence_annotation: str | None = None
+    custom_annotation: str | None = None
+    annotation_color: str | None = None
+
+
+@dataclass(kw_only=True)
+class PeakMapConfig(BaseConfig):
+    zlabel = None
+    add_marginals = False
+    y_kind = "spectrum"
+    x_kind = "chromatogram"
+    bin_peaks: Union[Literal["auto"], bool] = "auto"
+    num_x_bins: int = 50
+    num_y_bins: int = 50
+    z_log_scale: bool = False
+    fill_by_z: bool = True
 
 
 @dataclass(kw_only=True)
@@ -186,7 +227,7 @@ class _BasePlotConfig(ABC):
     toolbar_location: str = "above"
 
     legend_config: LegendConfig = field(default_factory=default_legend_factory)
-    annotation_config: AnnotationConfig = field(default_factory=AnnotationConfig)
+    plot_config = None
 
     def __post_init__(self):
         # Update default plot labels based on the kind of plot

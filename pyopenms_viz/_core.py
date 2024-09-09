@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, Literal, Union, List, Dict
+from typing import Any, Tuple, Literal, Union, List, Dict, Optional
 import importlib
 import types
 
@@ -10,7 +10,13 @@ from pandas.core.dtypes.generic import ABCDataFrame
 from pandas.core.dtypes.common import is_integer
 from pandas.util._decorators import Appender
 
-from ._config import LegendConfig, AnnotationConfig, _BasePlotConfig
+from ._config import (
+    LegendConfig,
+    _BasePlotConfig,
+    SpectrumConfig,
+    ChromatogramConfig,
+    PeakMapConfig,
+)
 from ._misc import ColorGenerator
 from dataclasses import dataclass, asdict
 
@@ -131,7 +137,9 @@ class BasePlot(ABC):
 
     # Configurations
     legend_config: LegendConfig | Dict | None = None
-    annotation_config: AnnotationConfig | Dict | None = None
+    plot_config: SpectrumConfig | ChromatogramConfig | PeakMapConfig | Dict | None = (
+        None  # plot specific configuration
+    )
     _config: _BasePlotConfig | None = None
 
     # Note priority is keyword arguments > config > default values
@@ -147,15 +155,28 @@ class BasePlot(ABC):
         else:
             self.legend_config = LegendConfig()
 
-        if self.annotation_config is not None:
-            if isinstance(self.annotation_config, dict):
-                self.annotation_config = AnnotationConfig.from_dict(
-                    self.annotation_config
+        if self.plot_config is not None:
+            if self._kind == "spectrum":
+                self.plot_config = (
+                    SpectrumConfig.from_dict(self.plot_config)
+                    if isinstance(self.plot_config, dict)
+                    else SpectrumConfig()
                 )
-        else:
-            self.annotation_config = AnnotationConfig()
+            elif self._kind in {"chromatogram", "mobilogram"}:
+                self.plot_config = (
+                    ChromatogramConfig.from_dict(self.plot_config)
+                    if isinstance(self.plot_config, dict)
+                    else ChromatogramConfig()
+                )
+            elif self._kind == "feature_heatmap":
+                self.plot_config = (
+                    PeakMapConfig.from_dict(self.plot_config)
+                    if isinstance(self.plot_config, dict)
+                    else PeakMapConfig()
+                )
 
-        self.update_config()  # update config based on kwargs
+        # update the base plot config based on kwargs
+        self.update_config()
 
         ### get x and y data
         if self._kind in {
@@ -423,6 +444,21 @@ class ChromatogramPlot(BaseMSPlot, ABC):
     def _kind(self):
         return "chromatogram"
 
+    @property
+    def plot_config(self):
+        return self._plot_config
+
+    @plot_config.setter
+    def plot_config(self, value):
+        if value is None:
+            self._plot_config = ChromatogramConfig()
+        elif isinstance(value, dict):
+            self._plot_config = ChromatogramConfig.from_dict(value)
+        elif isinstance(value, ChromatogramConfig):
+            self._plot_config = value
+        else:
+            raise ValueError("plot_config must be a dict, ChromatogramConfig, or None")
+
     def __init__(
         self, data, x, y, annotation_data: DataFrame | None = None, **kwargs
     ) -> None:
@@ -499,14 +535,27 @@ class SpectrumPlot(BaseMSPlot, ABC):
     def _kind(self):
         return "spectrum"
 
+    @property
+    def plot_config(self):
+        return self._plot_config
+
+    @plot_config.setter
+    def plot_config(self, value):
+        if value is None:
+            self._plot_config = SpectrumConfig()
+        elif isinstance(value, dict):
+            self._plot_config = SpectrumConfig.from_dict(value)
+        elif isinstance(value, SpectrumConfig):
+            self._plot_config = value
+        else:
+            raise ValueError("plot_config must be a dict, SpectrumConfig, or None")
+
     def __init__(
         self,
         data,
         x,
         y,
-        by,
         reference_spectrum: DataFrame | None = None,
-        mirror_spectrum: bool = False,
         **kwargs,
     ) -> None:
 
@@ -515,10 +564,7 @@ class SpectrumPlot(BaseMSPlot, ABC):
 
         super().__init__(data, x, y, **kwargs)
 
-        self.reference_spectrum = reference_spectrum
-        self.mirror_spectrum = mirror_spectrum
-
-        self.plot(x, y, by)
+        self.plot(x, y, by=self.by)
         if self.show_plot:
             self.show()
 
@@ -580,6 +626,21 @@ class FeatureHeatmapPlot(BaseMSPlot, ABC):
     @property
     def _kind(self):
         return "feature_heatmap"
+
+    @property
+    def plot_config(self):
+        return self._plot_config
+
+    @plot_config.setter
+    def plot_config(self, value):
+        if value is None:
+            self._plot_config = PeakMapConfig()
+        elif isinstance(value, dict):
+            self._plot_config = PeakMapConfig.from_dict(value)
+        elif isinstance(value, PeakMapConfig):
+            self._plot_config = value
+        else:
+            raise ValueError("plot_config must be a dict, PeakMapConfig, or None")
 
     def __init__(
         self,
