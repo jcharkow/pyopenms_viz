@@ -134,12 +134,6 @@ class BasePlot(ABC):
     line_type: str | None = None
     line_width: float | None = None
     show_plot: bool | None = None
-    title_font_size: int | None = (None,)
-    xaxis_label_font_size: int | None = (None,)
-    yaxis_label_font_size: int | None = (None,)
-    xaxis_tick_font_size: int | None = (None,)
-    yaxis_tick_font_size: int | None = (None,)
-    annotation_font_size: int | None = (None,)
 
     # Configurations
     legend_config: LegendConfig | Dict | None = None
@@ -851,14 +845,12 @@ class PeakMapPlot(BaseMSPlot, ABC):
         z,
         zlabel=None,
         add_marginals=False,
-        y_kind="spectrum",
-        x_kind="chromatogram",
         annotation_data: DataFrame | None = None,
         bin_peaks: Union[Literal["auto"], bool] = "auto",
         num_x_bins: int = 50,
         num_y_bins: int = 50,
         z_log_scale: bool = False,
-        fill_by_z: bool = True,
+        # plot_3d: bool = False,
         **kwargs,
     ) -> None:
         # Copy data since it will be modified
@@ -872,9 +864,6 @@ class PeakMapPlot(BaseMSPlot, ABC):
 
         self.zlabel = zlabel
         self.add_marginals = add_marginals
-        self.y_kind = y_kind
-        self.x_kind = x_kind
-        self.fill_by_z = fill_by_z
 
         if annotation_data is not None:
             self.annotation_data = annotation_data.copy()
@@ -920,11 +909,10 @@ class PeakMapPlot(BaseMSPlot, ABC):
 
         super().__init__(data, x, y, z=z, **kwargs)
 
-        # If we do not want to fill/color based on z value, set to none prior to plotting
-        if not fill_by_z:
-            z = None
-
+        # if not plot_3d:
         self.plot(x, y, z, by=self.by)
+        # else:
+        #     self.plot_3d(x, y, z, **kwargs)
 
         if self.show_plot:
             self.show()
@@ -994,22 +982,9 @@ class PeakMapPlot(BaseMSPlot, ABC):
 
         color_gen = ColorGenerator()
 
-        # remove legend from class_kwargs to update legend args for x axis plot
-        class_kwargs.pop("legend", None)
-        class_kwargs.pop("ylabel", None)
-
-        if self.x_kind in ["chromatogram", "mobilogram"]:
-            x_plot_obj = self.get_line_renderer(
-                x_data, x, z, by=self.by, _config=x_config, **class_kwargs
-            )
-        elif self.x_kind == "spectrum":
-            x_plot_obj = self.get_vline_renderer(
-                x_data, x, z, by=self.by, _config=x_config, **class_kwargs
-            )
-        else:
-            raise ValueError(
-                f"x_kind {self.x_kind} not recognized, must be 'chromatogram', 'mobilogram' or 'spectrum'"
-            )
+        x_plot_obj = self.get_line_renderer(x_data, x, z, by=by, _config=x_config)
+        print("x plot config")
+        print(x_plot_obj._config)
 
         x_fig = x_plot_obj.generate(line_color=color_gen)
         self.plot_x_axis_line(x_fig)
@@ -1032,30 +1007,8 @@ class PeakMapPlot(BaseMSPlot, ABC):
 
         color_gen = ColorGenerator()
 
-        if self.y_kind in ["chromatogram", "mobilogram"]:
-            y_plot_obj = self.get_line_renderer(
-                y_data,
-                z,
-                y,
-                by=self.by,
-                _config=y_config,
-            )
-            y_fig = y_plot_obj.generate(line_color=color_gen)
-        elif self.y_kind == "spectrum":
-            direction = "horizontal"
-            y_plot_obj = self.get_vline_renderer(
-                y_data,
-                z,
-                y,
-                by=self.by,
-                _config=y_config,
-            )
-            y_fig = y_plot_obj.generate(line_color=color_gen, direction=direction)
-        else:
-            raise ValueError(
-                f"y_kind {self.y_kind} not recognized, must be 'chromatogram', 'mobilogram' or 'spectrum'"
-            )
-
+        y_plot_obj = self.get_line_renderer(y_data, z, y, by=by, _config=y_config)
+        y_fig = y_plot_obj.generate(line_color=color_gen)
         self.plot_x_axis_line(y_fig)
 
         return y_fig

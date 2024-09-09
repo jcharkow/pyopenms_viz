@@ -75,23 +75,22 @@ class PLOTLYPlot(BasePlot, ABC):
             legend_font_size=self.legend_config.fontsize,
             showlegend=self.legend_config.show,
         )
+
         # Update to look similar to Bokeh theme
         # Customize the layout
         fig.update_layout(
             plot_bgcolor="#FFFFFF",  # Set the plot background color
             font_family="Helvetica",  # Set the font family
-            # font_size=12,  # Set the font size
+            font_size=12,  # Set the font size
             title_font_family="Helvetica",  # Set the title font family
-            title_font_size=self.title_font_size,  # Set the title font size
+            title_font_size=16,  # Set the title font size
             xaxis_title_font_family="Helvetica",  # Set the x-axis title font family
-            xaxis_title_font_size=self.xaxis_label_font_size,  # Set the x-axis title font size
+            xaxis_title_font_size=14,  # Set the x-axis title font size
             yaxis_title_font_family="Helvetica",  # Set the y-axis title font family
-            yaxis_title_font_size=self.yaxis_label_font_size,  # Set the y-axis title font size
+            yaxis_title_font_size=14,  # Set the y-axis title font size
             xaxis_gridcolor="#CCCCCC",  # Set the x-axis grid color
             yaxis_gridcolor="#CCCCCC",  # Set the y-axis grid color
-            xaxis_tickfont_size=self.xaxis_tick_font_size,  # Set the x-axis tick font size
             xaxis_tickfont_family="Helvetica",  # Set the x-axis tick font family
-            yaxis_tickfont_size=self.yaxis_tick_font_size,  # Set the y-axis tick font size
             yaxis_tickfont_family="Helvetica",  # Set the y-axis tick font family
             legend_font_family="Helvetica",  # Set the legend font family
         )
@@ -250,21 +249,13 @@ class PLOTLYVLinePlot(PLOTLYPlot, VLinePlot):
             color_gen = ColorGenerator()
 
         if not plot_3d:
-            direction = kwargs.pop("direction", "vertical")
             traces = []
             if by is None:
                 for _, row in data.iterrows():
                     line_color = next(color_gen)
-                    if direction == "horizontal":
-                        x_data = [0, row[x]]
-                        y_data = [row[y]] * 2
-                    else:
-                        x_data = [row[x]] * 2
-                        y_data = [0, row[y]]
-                        
                     trace = go.Scattergl(
-                        x=x_data,
-                        y=y_data,
+                        x=[row[x]] * 2,
+                        y=[0, row[y]],
                         mode="lines",
                         name="",
                         showlegend=False,
@@ -280,17 +271,10 @@ class PLOTLYVLinePlot(PLOTLYPlot, VLinePlot):
                     else:
                         first_group_trace_showlenged = True
                     for _, row in df.iterrows():
-                        if direction == "horizontal":
-                            x_data = [0, row[x]]
-                            y_data = [row[y]] * 2
-                        else:
-                            x_data = [row[x]] * 2
-                            y_data = [0, row[y]]
-                            
                         line_color = next(color_gen)
                         trace = go.Scattergl(
-                            x=x_data,
-                            y=y_data,
+                            x=[row[x]] * 2,
+                            y=[0, row[y]],
                             mode="lines",
                             name=group,
                             legendgroup=group,
@@ -426,7 +410,7 @@ class PLOTLYVLinePlot(PLOTLYPlot, VLinePlot):
                 xanchor="left",
                 font=dict(
                     family="Open Sans Mono, monospace",
-                    size=self.annotation_font_size,
+                    size=12,
                     color=color,
                 ),
             )
@@ -448,7 +432,6 @@ class PLOTLYScatterPlot(PLOTLYPlot, ScatterPlot):
         if marker_gen is None:
             marker_gen = MarkerShapeGenerator(engine="PLOTLY")
         marker_dict = kwargs.pop("marker", dict())
-        marker_size = kwargs.pop("marker_size", 10)
         # Check for z-dimension and plot heatmap
         z = kwargs.pop("z", None)
         # Plotting heatmaps with z dimension overwrites marker_dict.
@@ -458,7 +441,7 @@ class PLOTLYScatterPlot(PLOTLYPlot, ScatterPlot):
                 color=data[z],
                 colorscale="Inferno_r",
                 showscale=False,
-                size=marker_size,
+                size=10,
                 opacity=0.8,
                 cmin=data[z].min(),
                 cmax=data[z].max(),
@@ -591,10 +574,7 @@ class PLOTLYPeakMapPlot(PLOTLY_MSPlot, PeakMapPlot):
             scatterPlot = self.get_scatter_renderer(self.data, x, y, **class_kwargs)
             self.fig = scatterPlot.generate(z=z, **other_kwargs)
 
-            if z is not None:
-                tooltips, custom_hover_data = self._create_tooltips({self.xlabel: x, self.ylabel: y, self.zlabel: z})
-            else:
-                tooltips, custom_hover_data = self._create_tooltips({self.xlabel: x, self.ylabel: y})
+            tooltips, custom_hover_data = self._create_tooltips({self.xlabel: x, self.ylabel: y, self.zlabel: z})
 
             self._add_tooltips(self.fig, tooltips, custom_hover_data=custom_hover_data)
 
@@ -611,7 +591,7 @@ class PLOTLYPeakMapPlot(PLOTLY_MSPlot, PeakMapPlot):
     def create_x_axis_plot(self, x, z, class_kwargs) -> "figure":
         x_fig = super().create_x_axis_plot(x, z, class_kwargs)
         x_fig.update_xaxes(visible=False)
-        
+
         return x_fig
 
     def create_y_axis_plot(self, y, z, class_kwargs) -> "figure":
@@ -619,7 +599,7 @@ class PLOTLYPeakMapPlot(PLOTLY_MSPlot, PeakMapPlot):
         y_fig.update_xaxes(range=[0, self.data[z].max()])
         y_fig.update_yaxes(range=[self.data[y].min(), self.data[y].max()])
         y_fig.update_layout(xaxis_title=self.ylabel, yaxis_title=self.zlabel)
-        
+
         return y_fig
 
     def combine_plots(self, x_fig, y_fig):
@@ -648,7 +628,7 @@ class PLOTLYPeakMapPlot(PLOTLY_MSPlot, PeakMapPlot):
                 ],
             ],
         )
-        
+
         # Add the heatmap to the first row
         for trace in self.fig.data:
             trace.showlegend = False
@@ -704,19 +684,11 @@ class PLOTLYPeakMapPlot(PLOTLY_MSPlot, PeakMapPlot):
         # Update the layout
         fig_m.update_layout(height=self.height, width=self.width, title=self.title)
 
-        # change subplot axes font size
-        # each plot title is treated as an annotation
-        fig_m.for_each_annotation(lambda annotation: annotation.update(font=dict(size=self.title_font_size)))
-        fig_m.for_each_xaxis(lambda axis: axis.title.update(font=dict(size=self.xaxis_label_font_size)))
-        fig_m.for_each_yaxis(lambda axis: axis.title.update(font=dict(size=self.yaxis_label_font_size)))
-        fig_m.for_each_xaxis(lambda axis: axis.tickfont.update(size=self.xaxis_tick_font_size))
-        fig_m.for_each_yaxis(lambda axis: axis.tickfont.update(size=self.yaxis_tick_font_size))
-
         # Overwrite the figure with the new grid figure
         self.fig = fig_m
 
         self._update_plot_aes(self.fig)
-        
+
     def _add_box_boundaries(self, annotation_data, **kwargs):
         color_gen = ColorGenerator(
             colormap=self.annotation_config.colormap, n=annotation_data.shape[0]

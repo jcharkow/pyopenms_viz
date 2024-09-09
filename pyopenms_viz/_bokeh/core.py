@@ -70,13 +70,6 @@ class BOKEHPlot(BasePlot, ABC):
         """
         fig.grid.visible = self.grid
         fig.toolbar_location = self.toolbar_location
-        # Update title, axis title and axis tick label sizes
-        if fig.title is not None:
-            fig.title.text_font_size = f"{self.title_font_size}pt"
-        fig.xaxis.axis_label_text_font_size = f"{self.xaxis_label_font_size}pt"
-        fig.yaxis.axis_label_text_font_size = f"{self.yaxis_label_font_size}pt"
-        fig.xaxis.major_label_text_font_size = f"{self.xaxis_tick_font_size}pt"
-        fig.yaxis.major_label_text_font_size = f"{self.yaxis_tick_font_size}pt"
 
     def _add_legend(self, fig, legend):
         """
@@ -219,8 +212,6 @@ class BOKEHLinePlot(BOKEHPlot, LinePlot):
         Plot a line plot
         """
         color_gen = kwargs.pop("line_color", None)
-        if "line_width" not in kwargs:
-            kwargs["line_width"] = 2.5
 
         if by is None:
             source = ColumnDataSource(data)
@@ -262,29 +253,17 @@ class BOKEHVLinePlot(BOKEHPlot, VLinePlot):
         color_gen = kwargs.pop("line_color", None)
         if color_gen is None:
             color_gen = ColorGenerator()
-        line_width = kwargs.pop("line_width", 2.5)
         data["line_color"] = [next(color_gen) for _ in range(len(data))]
-        data["line_width"] = [line_width for _ in range(len(data))]
         if not plot_3d:
-            direction = kwargs.pop("direction", "vertical")
             if by is None:
                 source = ColumnDataSource(data)
-                if direction == "horizontal":
-                    x0_data_var = 0
-                    x1_data_var = x
-                    y0_data_var = y1_data_var = y
-                else:
-                    x0_data_var = x1_data_var = x
-                    y0_data_var = 0
-                    y1_data_var = y
                 line = fig.segment(
-                    x0=x0_data_var,
-                    y0=y0_data_var,
-                    x1=x1_data_var,
-                    y1=y1_data_var,
+                    x0=x,
+                    y0=0,
+                    x1=x,
+                    y1=y,
                     source=source,
                     line_color="line_color",
-                    line_width="line_width",
                     **kwargs,
                 )
                 return fig, None
@@ -292,23 +271,13 @@ class BOKEHVLinePlot(BOKEHPlot, VLinePlot):
                 legend_items = []
                 for group, df in data.groupby(by):
                     source = ColumnDataSource(df)
-                    if direction == "horizontal":
-                        x0_data_var = 0
-                        x1_data_var = x
-                        y0_data_var = y1_data_var = y
-                    else:
-                        x0_data_var = x1_data_var = x
-                        y0_data_var = 0
-                        y1_data_var = y
-
                     line = fig.segment(
-                        x0=x0_data_var,
-                        y0=y0_data_var,
-                        x1=x1_data_var,
-                        y1=y1_data_var,
+                        x0=x,
+                        y0=0,
+                        x1=x,
+                        y1=y,
                         source=source,
                         line_color="line_color",
-                        line_width="line_width",
                         **kwargs,
                     )
                     legend_items.append((group, [line]))
@@ -332,7 +301,7 @@ class BOKEHVLinePlot(BOKEHPlot, VLinePlot):
                 x=x,
                 y=y,
                 text=text,
-                text_font_size="13pt",
+                text_font_size="8pt",
                 text_color=color,
                 x_offset=1,
                 y_offset=0,
@@ -360,15 +329,13 @@ class BOKEHScatterPlot(BOKEHPlot, ScatterPlot):
         marker_gen = kwargs.pop("marker_gen", None)
         if marker_gen is None:
             marker_gen = MarkerShapeGenerator(engine="BOKEH")
-        marker_size = kwargs.pop("marker_size", 10)
 
-        if z is not None:
-            mapper = linear_cmap(
-                field_name=z,
-                palette=Plasma256[::-1],
-                low=min(data[z]),
-                high=max(data[z]),
-            )
+        mapper = linear_cmap(
+            field_name=z,
+            palette=Plasma256[::-1],
+            low=min(data[z]),
+            high=max(data[z]),
+        )
         # Set defaults if they have not been set in kwargs
         defaults = {
             "size": 10,
@@ -378,6 +345,7 @@ class BOKEHScatterPlot(BOKEHPlot, ScatterPlot):
         for k, v in defaults.items():
             if k not in kwargs.keys():
                 kwargs[k] = v
+
         if by is None:
             kwargs["marker"] = next(marker_gen)
             source = ColumnDataSource(data)
@@ -387,8 +355,6 @@ class BOKEHScatterPlot(BOKEHPlot, ScatterPlot):
             legend_items = []
             for group, df in data.groupby(by):
                 kwargs["marker"] = next(marker_gen)
-                if z is None:
-                    kwargs["fill_color"] = next(color_gen)
                 source = ColumnDataSource(df)
                 line = fig.scatter(x=x, y=y, source=source, **kwargs)
                 legend_items.append((group, [line]))
@@ -550,13 +516,6 @@ class BOKEHPeakMapPlot(BOKEH_MSPlot, PeakMapPlot):
     def combine_plots(self, x_fig, y_fig):
         # Modify the main plot
         self.fig.yaxis.visible = False
-        # Ensure all plots have the same dimensions
-        x_fig.frame_height = self.height
-        x_fig.frame_width = self.width
-        y_fig.frame_width = self.width
-        y_fig.frame_height = self.height
-        self.fig.frame_width = self.width
-        self.fig.frame_height = self.height
 
         from bokeh.layouts import gridplot
 
