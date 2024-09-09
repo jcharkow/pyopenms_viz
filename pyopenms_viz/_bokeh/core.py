@@ -15,7 +15,6 @@ from bokeh.models import (
     Span,
     VStrip,
     GlyphRenderer,
-    Label,
 )
 
 from pandas.core.frame import DataFrame
@@ -29,11 +28,11 @@ from .._core import (
     BaseMSPlot,
     ChromatogramPlot,
     MobilogramPlot,
-    PeakMapPlot,
+    FeatureHeatmapPlot,
     SpectrumPlot,
     APPEND_PLOT_DOC,
 )
-from .._misc import ColorGenerator, MarkerShapeGenerator
+from .._misc import ColorGenerator
 from ..constants import PEAK_BOUNDARY_ICON, FEATURE_BOUNDARY_ICON
 
 
@@ -207,7 +206,7 @@ class BOKEHLinePlot(BOKEHPlot, LinePlot):
 
     @classmethod
     @APPEND_PLOT_DOC
-    def plot(cls, fig, data, x, y, by: str | None = None, plot_3d=False, **kwargs):
+    def plot(cls, fig, data, x, y, by: str | None = None, **kwargs):
         """
         Plot a line plot
         """
@@ -216,9 +215,7 @@ class BOKEHLinePlot(BOKEHPlot, LinePlot):
         if by is None:
             source = ColumnDataSource(data)
             if color_gen is not None:
-                kwargs["line_color"] = (
-                    color_gen if isinstance(color_gen, str) else next(color_gen)
-                )
+                kwargs["line_color"] = next(color_gen)
             line = fig.line(x=x, y=y, source=source, **kwargs)
 
             return fig, None
@@ -228,9 +225,7 @@ class BOKEHLinePlot(BOKEHPlot, LinePlot):
             for group, df in data.groupby(by):
                 source = ColumnDataSource(df)
                 if color_gen is not None:
-                    kwargs["line_color"] = (
-                        color_gen if isinstance(color_gen, str) else next(color_gen)
-                    )
+                    kwargs["line_color"] = next(color_gen)
                 line = fig.line(x=x, y=y, source=source, **kwargs)
                 legend_items.append((group, [line]))
 
@@ -246,67 +241,35 @@ class BOKEHVLinePlot(BOKEHPlot, VLinePlot):
 
     @classmethod
     @APPEND_PLOT_DOC
-    def plot(cls, fig, data, x, y, by: str | None = None, plot_3d=False, **kwargs):
+    def plot(cls, fig, data, x, y, by: str | None = None, **kwargs):
         """
         Plot a set of vertical lines
         """
-        color_gen = kwargs.pop("line_color", None)
-        if color_gen is None:
-            color_gen = ColorGenerator()
-        data["line_color"] = [next(color_gen) for _ in range(len(data))]
-        if not plot_3d:
-            if by is None:
-                source = ColumnDataSource(data)
-                line = fig.segment(
-                    x0=x,
-                    y0=0,
-                    x1=x,
-                    y1=y,
-                    source=source,
-                    line_color="line_color",
-                    **kwargs,
-                )
-                return fig, None
-            else:
-                legend_items = []
-                for group, df in data.groupby(by):
-                    source = ColumnDataSource(df)
-                    line = fig.segment(
-                        x0=x,
-                        y0=0,
-                        x1=x,
-                        y1=y,
-                        source=source,
-                        line_color="line_color",
-                        **kwargs,
-                    )
-                    legend_items.append((group, [line]))
 
-                legend = Legend(items=legend_items)
-
-                return fig, legend
+        if by is None:
+            color_gen = kwargs.pop("line_color", None)
+            source = ColumnDataSource(data)
+            if color_gen is not None:
+                kwargs["line_color"] = next(color_gen)
+            line = fig.segment(x0=x, y0=0, x1=x, y1=y, source=source, **kwargs)
+            return fig, None
         else:
-            raise NotImplementedError("3D Vline plots are not supported in Bokeh")
+            color_gen = kwargs.pop("line_color", None)
+            legend_items = []
+            for group, df in data.groupby(by):
+                source = ColumnDataSource(df)
+                if color_gen is not None:
+                    kwargs["line_color"] = next(color_gen)
+                line = fig.segment(x0=x, y0=0, x1=x, y1=y, source=source, **kwargs)
+                legend_items.append((group, [line]))
 
-    def _add_annotations(
-        self,
-        fig,
-        ann_texts: list[str],
-        ann_xs: list[float],
-        ann_ys: list[float],
-        ann_colors: list[str],
-    ):
-        for text, x, y, color in zip(ann_texts, ann_xs, ann_ys, ann_colors):
-            label = Label(
-                x=x,
-                y=y,
-                text=text,
-                text_font_size="8pt",
-                text_color=color,
-                x_offset=1,
-                y_offset=0,
-            )
-            fig.add_layout(label)
+            legend = Legend(items=legend_items)
+
+            return fig, legend
+
+    def _add_annotation(self, fig, data, x, y, **kwargs):
+        # TODO: Implement text label annotations
+        pass
 
 
 class BOKEHScatterPlot(BOKEHPlot, ScatterPlot):
@@ -316,45 +279,18 @@ class BOKEHScatterPlot(BOKEHPlot, ScatterPlot):
 
     @classmethod
     @APPEND_PLOT_DOC
-    def plot(cls, fig, data, x, y, by: str | None = None, plot_3d=False, **kwargs):
+    def plot(cls, fig, data, x, y, by: str | None = None, **kwargs):
         """
         Plot a scatter plot
         """
-        z = kwargs.pop("z", None)
-
-        color_gen = kwargs.pop("color_gen", None)
-        if color_gen is None:
-            color_gen = ColorGenerator()
-
-        marker_gen = kwargs.pop("marker_gen", None)
-        if marker_gen is None:
-            marker_gen = MarkerShapeGenerator(engine="BOKEH")
-
-        mapper = linear_cmap(
-            field_name=z,
-            palette=Plasma256[::-1],
-            low=min(data[z]),
-            high=max(data[z]),
-        )
-        # Set defaults if they have not been set in kwargs
-        defaults = {
-            "size": 10,
-            "line_width": 0,
-            "fill_color": mapper if z is not None else next(color_gen),
-        }
-        for k, v in defaults.items():
-            if k not in kwargs.keys():
-                kwargs[k] = v
 
         if by is None:
-            kwargs["marker"] = next(marker_gen)
             source = ColumnDataSource(data)
             line = fig.scatter(x=x, y=y, source=source, **kwargs)
             return fig, None
         else:
             legend_items = []
             for group, df in data.groupby(by):
-                kwargs["marker"] = next(marker_gen)
                 source = ColumnDataSource(df)
                 line = fig.scatter(x=x, y=y, source=source, **kwargs)
                 legend_items.append((group, [line]))
@@ -380,14 +316,19 @@ class BOKEH_MSPlot(BaseMSPlot, BOKEHPlot, ABC):
         )
         fig.add_layout(zero_line)
 
-    def _create_tooltips(self, entries, index=True):
+    def _create_tooltips(self):
         # Tooltips for interactive information
-        tooltips = []
-        if index:
-            tooltips.append(("index", "$index"))
-        for key, value in entries.items():
-            tooltips.append((key, f"@{value}"))
-        return tooltips, None
+        TOOLTIPS = [
+            ("index", "$index"),
+            ("Retention Time", "@rt{0.2f}"),
+            ("Intensity", "@int{0.2f}"),
+            ("m/z", "@mz{0.4f}"),
+        ]
+        if "Annotation" in self.data.columns:
+            TOOLTIPS.append(("Annotation", "@Annotation"))
+        if "product_mz" in self.data.columns:
+            TOOLTIPS.append(("Target m/z", "@product_mz{0.4f}"))
+        return TOOLTIPS, None
 
 
 class BOKEHChromatogramPlot(BOKEH_MSPlot, ChromatogramPlot):
@@ -468,29 +409,29 @@ class BOKEHSpectrumPlot(BOKEH_MSPlot, SpectrumPlot):
     pass
 
 
-class BOKEHPeakMapPlot(BOKEH_MSPlot, PeakMapPlot):
+class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
     """
     Class for assembling a Bokeh feature heatmap plot
     """
 
     def create_main_plot(self, x, y, z, by):
-        if not self.plot_3d:
-            scatterPlot = self.get_scatter_renderer(
-                self.data, x, y, by=by, _config=self._config
-            )
-            mapper = linear_cmap(
-                field_name=z,
-                palette=Plasma256[::-1],
-                low=min(self.data[z]),
-                high=max(self.data[z]),
-            )
+        scatterPlot = self.get_scatter_renderer(
+            self.data, x, y, by=by, _config=self._config
+        )
+        mapper = linear_cmap(
+            field_name=z,
+            palette=Plasma256[::-1],
+            low=min(self.data[z]),
+            high=max(self.data[z]),
+        )
 
-            self.fig = scatterPlot.generate(
-                marker="square", line_color=mapper, fill_color=mapper
-            )
+        self.fig = scatterPlot.generate(
+            marker="square", line_color=mapper, fill_color=mapper
+        )
 
-            if self.annotation_data is not None:
-                self._add_box_boundaries(self.annotation_data)
+        print(self._config)
+        if self.annotation_data is not None:
+            self._add_box_boundaries(self.annotation_data)
 
     def create_x_axis_plot(self, x, z, by):
         x_fig = super().create_x_axis_plot(x, z, by)

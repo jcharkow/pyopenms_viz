@@ -11,7 +11,7 @@ from .core import (
     BOKEHChromatogramPlot,
     BOKEHMobilogramPlot,
     BOKEHSpectrumPlot,
-    BOKEHPeakMapPlot,
+    BOKEHFeatureHeatmapPlot,
 )
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ PLOT_CLASSES: dict[str, type[BOKEHPlot]] = {
     "chromatogram": BOKEHChromatogramPlot,
     "mobilogram": BOKEHMobilogramPlot,
     "spectrum": BOKEHSpectrumPlot,
-    "peakmap": BOKEHPeakMapPlot,
+    "feature_heatmap": BOKEHFeatureHeatmapPlot,
 }
 
 

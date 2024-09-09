@@ -10,7 +10,7 @@ from .core import (
     MATPLOTLIBChromatogramPlot,
     MATPLOTLIBMobilogramPlot,
     MATPLOTLIBSpectrumPlot,
-    MATPLOTLIBPeakMapPlot,
+    MATPLOTLIBFeatureHeatmapPlot,
 )
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ PLOT_CLASSES: dict[str, type[MATPLOTLIBPlot]] = {
     "chromatogram": MATPLOTLIBChromatogramPlot,
     "mobilogram": MATPLOTLIBMobilogramPlot,
     "spectrum": MATPLOTLIBSpectrumPlot,
-    "peakmap": MATPLOTLIBPeakMapPlot,
+    "feature_heatmap": MATPLOTLIBFeatureHeatmapPlot,
 }
 
 

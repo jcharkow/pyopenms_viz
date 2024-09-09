@@ -4,24 +4,20 @@ from abc import ABC, abstractmethod
 from typing import Any, Tuple, Literal, Union, List, Dict
 import importlib
 import types
-import re
 
-from pandas import cut, merge
 from pandas.core.frame import DataFrame
 from pandas.core.dtypes.generic import ABCDataFrame
 from pandas.core.dtypes.common import is_integer
 from pandas.util._decorators import Appender
 
-from numpy import ceil, log1p, log2
-
 from ._config import LegendConfig, AnnotationConfig, _BasePlotConfig
-from ._misc import ColorGenerator, sturges_rule, freedman_diaconis_rule
+from ._misc import ColorGenerator
 from dataclasses import dataclass, asdict
 
 _common_kinds = ("line", "vline", "scatter")
-_msdata_kinds = ("chromatogram", "mobilogram", "spectrum", "peakmap")
+_msdata_kinds = ("chromatogram", "mobilogram", "spectrum", "feature_heatmap")
 _all_kinds = _common_kinds + _msdata_kinds
-_entrypoint_backends = ("ms_matplotlib", "ms_bokeh", "ms_plotly")
+_entrypoint_backends = ("pomsvim", "pomsvib", "pomsvip")
 
 _baseplot_doc = f"""
     Plot method for creating plots from a Pandas DataFrame.
@@ -117,7 +113,6 @@ class BasePlot(ABC):
         ]
         | None
     ) = None
-    plot_3d: bool = False
     by: str | None = None
     relative_intensity: bool = False
 
@@ -130,7 +125,6 @@ class BasePlot(ABC):
     title: str | None = None
     xlabel: str | None = None
     ylabel: str | None = None
-    zlabel: str | None = None
     line_type: str | None = None
     line_width: float | None = None
     show_plot: bool | None = None
@@ -171,13 +165,13 @@ class BasePlot(ABC):
             "chromatogram",
             "mobilogram",
             "spectrum",
-            "peakmap",
+            "feature_heatmap",
             "complex",
         }:
             self.x = self._verify_column(self.x, "x")
             self.y = self._verify_column(self.y, "y")
 
-        if self._kind in {"peakmap"}:
+        if self._kind in {"feature_heatmap"}:
             self.z = self._verify_column(self.z, "z")
 
         if self.by is not None:
@@ -299,9 +293,7 @@ class BasePlot(ABC):
         tooltips = kwargs.pop("tooltips", None)
         custom_hover_data = kwargs.pop("custom_hover_data", None)
 
-        newlines, legend = self.plot(
-            fig, self.data, self.x, self.y, self.by, self.plot_3d, **kwargs
-        )
+        newlines, legend = self.plot(fig, self.data, self.x, self.y, self.by, **kwargs)
 
         if legend is not None:
             self._add_legend(newlines, legend)
@@ -311,9 +303,7 @@ class BasePlot(ABC):
             self._add_tooltips(newlines, tooltips, custom_hover_data)
 
     @abstractmethod
-    def plot(
-        cls, fig, data, x, y, by: str | None = None, plot_3d: bool = False, **kwargs
-    ):
+    def plot(cls, fig, data, x, y, by: str | None = None, **kwargs):
         """
         Create the plot
         """
@@ -388,26 +378,6 @@ class VLinePlot(BasePlot, ABC):
     def _kind(self):
         return "vline"
 
-    def _add_annotations(
-        self,
-        fig,
-        ann_texts: list[str],
-        ann_xs: list[float],
-        ann_ys: list[float],
-        ann_colors: list[str],
-    ):
-        """
-        Add annotations to a VLinePlot figure.
-
-        Parameters:
-        fig: The figure to add annotations to.
-        ann_texts (list[str]): List of texts for the annotations.
-        ann_xs (list[float]): List of x-coordinates for the annotations.
-        ann_ys (list[float]): List of y-coordinates for the annotations.
-        ann_colors: (list[str]): List of colors for annotation text.
-        """
-        pass
-
 
 class ScatterPlot(BasePlot, ABC):
     @property
@@ -444,28 +414,7 @@ class BaseMSPlot(BasePlot, ABC):
         pass
 
     @abstractmethod
-    def _create_tooltips(self, entries: dict, index: bool = True):
-        """
-        Create tooltipis based on entries dictionary with keys: label for tooltip and values: column names.
-
-        entries = {
-            "m/z": "mz"
-            "Retention Time: "RT"
-        }
-
-        Will result in tooltips where label and value are separated by colon:
-
-        m/z: 100.5
-        Retention Time: 50.1
-
-        Parameters:
-            entries (dict): Which data to put in tool tip and how display it with labels as keys and column names as values.
-            index (bool, optional): Wether to show dataframe index in tooltip. Defaults to True.
-
-        Returns:
-            Tooltip text.
-            Tooltip data.
-        """
+    def _create_tooltips(self):
         pass
 
 
@@ -493,7 +442,7 @@ class ChromatogramPlot(BaseMSPlot, ABC):
         if self.show_plot:
             self.show()
 
-    def plot(self, data, x, y, by=None, **kwargs):
+    def plot(self, data, x, y, by=None):
         """
         Create the plot
         """
@@ -552,25 +501,12 @@ class SpectrumPlot(BaseMSPlot, ABC):
 
     def __init__(
         self,
-        data: DataFrame,
-        x: str,
-        y: str,
+        data,
+        x,
+        y,
         by,
         reference_spectrum: DataFrame | None = None,
         mirror_spectrum: bool = False,
-        relative_intensity: bool = False,
-        bin_peaks: Union[Literal["auto"], bool] = "auto",
-        bin_method: Literal[
-            "none", "sturges", "freedman-diaconis"
-        ] = "freedman-diaconis",
-        num_x_bins: int = 50,
-        peak_color: str | None = None,
-        annotate_top_n_peaks: int | None | Literal["all"] = 5,
-        annotate_mz: bool = True,
-        ion_annotation: str | None = None,
-        sequence_annotation: str | None = None,
-        custom_annotation: str | None = None,
-        annotation_color: str | None = None,
         **kwargs,
     ) -> None:
 
@@ -581,36 +517,15 @@ class SpectrumPlot(BaseMSPlot, ABC):
 
         self.reference_spectrum = reference_spectrum
         self.mirror_spectrum = mirror_spectrum
-        self.relative_intensity = relative_intensity
-        self.bin_peaks = bin_peaks
-        self.bin_method = bin_method
-        if self.bin_peaks == "auto":
-            if self.bin_method == "sturges":
-                self.num_x_bins = sturges_rule(data, x)
-            elif self.bin_method == "freedman-diaconis":
-                self.num_x_bins = freedman_diaconis_rule(data, x)
-            elif self.bin_method == "none":
-                self.num_x_bins = num_x_bins
-        else:
-            self.num_x_bins = num_x_bins
-        self.peak_color = peak_color
-        self.annotate_top_n_peaks = annotate_top_n_peaks
-        self.annotate_mz = annotate_mz
-        self.ion_annotation = ion_annotation
-        self.sequence_annotation = sequence_annotation
-        self.custom_annotation = custom_annotation
-        self.annotation_color = annotation_color
 
         self.plot(x, y, by)
         if self.show_plot:
             self.show()
 
     def plot(self, x, y, by=None):
-        """Standard spectrum plot with m/z on x-axis, intensity on y-axis and optional mirror spectrum."""
 
-        # Prepare data
         spectrum, reference_spectrum = self._prepare_data(
-            self.data, x, y, self.reference_spectrum
+            self.data, y, self.reference_spectrum
         )
 
         color_gen = ColorGenerator()
@@ -624,94 +539,24 @@ class SpectrumPlot(BaseMSPlot, ABC):
             line_color=color_gen, tooltips=TOOLTIPS, custom_hover_data=custom_hover_data
         )
 
-        # Annotations for spectrum
-        ann_texts, ann_xs, ann_ys, ann_colors = self._get_annotations(spectrum, x, y)
-        spectrumPlot._add_annotations(self.fig, ann_texts, ann_xs, ann_ys, ann_colors)
-
-        # Mirror spectrum
         if self.mirror_spectrum and reference_spectrum is not None:
-            # Set intensity to negative values
+            ## create a mirror spectrum
+            color_gen_mirror = ColorGenerator()
             reference_spectrum[y] = reference_spectrum[y] * -1
 
             mirror_spectrum = self.get_vline_renderer(
                 reference_spectrum, x, y, by=by, fig=self.fig, _config=self._config
             )
-
-            color_gen = self._get_colors(reference_spectrum, "peak")
-
-            mirror_spectrum.generate(line_color=color_gen)
+            mirror_spectrum.generate(line_color=color_gen_mirror)
             self.plot_x_axis_line(self.fig)
-
-            # Annotations for reference spectrum
-            ann_texts, ann_xs, ann_ys, ann_colors = self._get_annotations(
-                reference_spectrum, x, y
-            )
-            spectrumPlot._add_annotations(
-                self.fig, ann_texts, ann_xs, ann_ys, ann_colors
-            )
-
-        # Adjust x axis padding (Plotly cuts outermost peaks)
-        min_values = [spectrum[x].min()]
-        max_values = [spectrum[x].max()]
-        if reference_spectrum is not None:
-            min_values.append(reference_spectrum[x].min())
-            max_values.append(reference_spectrum[x].max())
-        self._modify_x_range((min(min_values), max(max_values)), padding=(0.20, 0.20))
-
-        # Adjust y axis padding (annotations should stay inside plot)
-        max_value = spectrum[y].max()
-        min_value = 0
-        min_padding = 0
-        max_padding = 0.15
-        if reference_spectrum is not None and self.mirror_spectrum:
-            min_value = reference_spectrum[y].min()
-            min_padding = -0.2
-            max_padding = 0.4
-
-        self._modify_y_range((min_value, max_value), padding=(min_padding, max_padding))
-
-    def _bin_peaks(self, data: DataFrame, x: str, y: str) -> DataFrame:
-        """
-        Bin peaks based on x-axis values.
-
-        Args:
-            data (DataFrame): The data to bin.
-            x (str): The column name for the x-axis data.
-            y (str): The column name for the y-axis data.
-
-        Returns:
-            DataFrame: The binned data.
-        """
-        data[x] = cut(data[x], bins=self.num_x_bins)
-        # TODO: Find a better way to retain other columns
-        cols = [x]
-        if self.by is not None:
-            cols.append(self.by)
-        if self.peak_color is not None:
-            cols.append(self.peak_color)
-        if self.ion_annotation is not None:
-            cols.append(self.ion_annotation)
-        if self.sequence_annotation is not None:
-            cols.append(self.sequence_annotation)
-        if self.custom_annotation is not None:
-            cols.append(self.custom_annotation)
-        if self.annotation_color is not None:
-            cols.append(self.annotation_color)
-
-        # Group by x bins and calculate the mean intensity within each bin
-        data = data.groupby(cols, observed=True).agg({y: "mean"}).reset_index()
-        data[x] = data[x].apply(lambda interval: interval.mid).astype(float)
-        data = data.fillna(0)
-        return data
 
     def _prepare_data(
         self,
         spectrum: DataFrame,
-        x: str,
         y: str,
         reference_spectrum: Union[DataFrame, None],
     ) -> tuple[list, list]:
-        """Prepares data for plotting based on configuration (copy, relative intensity)."""
+        """Prepares data for plotting based on configuration (ensures list format for input spectra, relative intensity, hover text)."""
 
         # copy spectrum data to not modify the original
         spectrum = spectrum.copy()
@@ -727,115 +572,14 @@ class SpectrumPlot(BaseMSPlot, ABC):
                     reference_spectrum[y] / reference_spectrum[y].max() * 100
                 )
 
-        # Bin peaks if required
-        if self.bin_peaks == True or (self.bin_peaks == "auto"):
-            spectrum = self._bin_peaks(spectrum, x, y)
-            if reference_spectrum is not None:
-                reference_spectrum = self._bin_peaks(reference_spectrum, x, y)
-
         return spectrum, reference_spectrum
 
-    def _get_colors(
-        self, data: DataFrame, kind: Literal["peak", "annotation"] | None = None
-    ):
-        """Get color generators for peaks or annotations based on config."""
-        # Top priority: custom color
-        if kind is not None:
-            if kind == "peak" and self.peak_color in data.columns:
-                return ColorGenerator(data[self.peak_color])
-            elif kind == "annotation" and self.annotation_color in data.columns:
-                return ColorGenerator(data[self.annotation_color])
-        # Colors based on ion annotation for peaks and annotation text
-        if self.ion_annotation is not None and self.ion_annotation in data.columns:
-            return self._get_ion_color_annotation(data)
-        # Color peaks of a group with the same color (from default colors)
-        if self.by:
-            if self.by in data.columns:
-                uniques = data[self.by].unique()
-                color_gen = ColorGenerator()
-                colors = [next(color_gen) for _ in range(len(uniques))]
-                color_map = {uniques[i]: colors[i] for i in range(len(colors))}
-                all_colors = data[self.by].apply(lambda x: color_map[x])
-                return ColorGenerator(all_colors)
-        # Lowest priority: return the first default color
-        return ColorGenerator(None, 1)
 
-    def _get_annotations(self, data: DataFrame, x: str, y: str):
-        """Create annotations for each peak. Return lists of texts, x and y locations and colors."""
-        color_gen = self._get_colors(data, "annotation")
-
-        data["color"] = [next(color_gen) for _ in range(len(data))]
-
-        ann_texts = []
-        top_n = self.annotate_top_n_peaks
-        if top_n == "all":
-            top_n = len(data)
-        elif top_n is None:
-            top_n = 0
-        # sort values for top intensity peaks on top (ascending for reference spectra with negative values)
-        data = data.sort_values(
-            y, ascending=True if data[y].min() < 0 else False
-        ).reset_index()
-
-        for i, row in data.iterrows():
-            texts = []
-            if i < top_n:
-                if self.annotate_mz:
-                    texts.append(str(round(row[x], 4)))
-                if self.ion_annotation and self.ion_annotation in data.columns:
-                    texts.append(str(row[self.ion_annotation]))
-                if (
-                    self.sequence_annotation
-                    and self.sequence_annotation in data.columns
-                ):
-                    texts.append(str(row[self.sequence_annotation]))
-                if self.custom_annotation and self.custom_annotation in data.columns:
-                    texts.append(str(row[self.custom_annotation]))
-            ann_texts.append("\n".join(texts))
-        return ann_texts, data[x].tolist(), data[y].tolist(), data["color"].tolist()
-
-    def _get_ion_color_annotation(self, data: DataFrame) -> str:
-        """Retrieve the color associated with a specific ion annotation from a predefined colormap."""
-        colormap = {
-            "a": ColorGenerator.color_blind_friendly_map[ColorGenerator.Colors.PURPLE],
-            "b": ColorGenerator.color_blind_friendly_map[ColorGenerator.Colors.BLUE],
-            "c": ColorGenerator.color_blind_friendly_map[
-                ColorGenerator.Colors.LIGHTBLUE
-            ],
-            "x": ColorGenerator.color_blind_friendly_map[ColorGenerator.Colors.YELLOW],
-            "y": ColorGenerator.color_blind_friendly_map[ColorGenerator.Colors.RED],
-            "z": ColorGenerator.color_blind_friendly_map[ColorGenerator.Colors.ORANGE],
-        }
-
-        def get_ion_color(ion):
-            if isinstance(ion, str):
-                for key in colormap.keys():
-                    # Exact matches
-                    if ion == key:
-                        return colormap[key]
-                    # Fragment ions via regex
-                    ## Check if ion format is a1+, a1-, etc. or if it's a1^1, a1^2, etc.
-                    if re.search(r"^[abcxyz]{1}[0-9]*[+-]$", ion):
-                        x = re.search(r"^[abcxyz]{1}[0-9]*[+-]$", ion)
-                    elif re.search(r"^[abcxyz]{1}[0-9]*\^[0-9]*$", ion):
-                        x = re.search(r"^[abcxyz]{1}[0-9]*\^[0-9]*$", ion)
-                    else:
-                        x = None
-                    if x:
-                        return colormap[ion[0]]
-            return ColorGenerator.color_blind_friendly_map[
-                ColorGenerator.Colors.DARKGRAY
-            ]
-
-        colors = data[self.ion_annotation].apply(get_ion_color)
-        return ColorGenerator(colors)
-
-
-class PeakMapPlot(BaseMSPlot, ABC):
+class FeatureHeatmapPlot(BaseMSPlot, ABC):
     # need to inherit from ChromatogramPlot and SpectrumPlot for get_line_renderer and get_vline_renderer methods respectively
     @property
     def _kind(self):
-        return "peakmap"
+        return "feature_heatmap"
 
     def __init__(
         self,
@@ -846,15 +590,8 @@ class PeakMapPlot(BaseMSPlot, ABC):
         zlabel=None,
         add_marginals=False,
         annotation_data: DataFrame | None = None,
-        bin_peaks: Union[Literal["auto"], bool] = "auto",
-        num_x_bins: int = 50,
-        num_y_bins: int = 50,
-        z_log_scale: bool = False,
-        # plot_3d: bool = False,
         **kwargs,
     ) -> None:
-        # Copy data since it will be modified
-        data = data.copy()
 
         # Set default config attributes if not passed as keyword arguments
         kwargs["_config"] = _BasePlotConfig(kind=self._kind)
@@ -869,51 +606,9 @@ class PeakMapPlot(BaseMSPlot, ABC):
             self.annotation_data = annotation_data.copy()
         else:
             self.annotation_data = None
-
-        # Convert intensity values to relative intensity if required
-        relative_intensity = kwargs.pop("relative_intensity", False)
-        if relative_intensity:
-            data[z] = data[z] / max(data[z]) * 100
-
-        # Bin peaks if required
-        if bin_peaks == True or (
-            data.shape[0] > num_x_bins * num_y_bins and bin_peaks == "auto"
-        ):
-            data[x] = cut(data[x], bins=num_x_bins)
-            data[y] = cut(data[y], bins=num_y_bins)
-            by = kwargs.pop("by", None)
-            if by is not None:
-                # Group by x, y and by columns and calculate the mean intensity within each bin
-                data = (
-                    data.groupby([x, y, by], observed=True)
-                    .agg({z: "mean"})
-                    .reset_index()
-                )
-                # Add by back to kwargs
-                kwargs["by"] = by
-            else:
-                # Group by x and y bins and calculate the mean intensity within each bin
-                data = (
-                    data.groupby([x, y], observed=True).agg({z: "mean"}).reset_index()
-                )
-            data[x] = data[x].apply(lambda interval: interval.mid).astype(float)
-            data[y] = data[y].apply(lambda interval: interval.mid).astype(float)
-            data = data.fillna(0)
-
-        # Log intensity scale
-        if z_log_scale:
-            data[z] = log1p(data[z])
-
-        # Sort values by intensity in ascending order to plot highest intensity peaks last
-        data = data.sort_values(z)
-
         super().__init__(data, x, y, z=z, **kwargs)
 
-        # if not plot_3d:
         self.plot(x, y, z, by=self.by)
-        # else:
-        #     self.plot_3d(x, y, z, **kwargs)
-
         if self.show_plot:
             self.show()
 
@@ -935,12 +630,6 @@ class PeakMapPlot(BaseMSPlot, ABC):
             y_fig = self.create_y_axis_plot(y, z, by)
 
             self.combine_plots(x_fig, y_fig)
-
-    # def plot_3d(self, x, y, z, **kwargs):
-    #     class_kwargs, other_kwargs = self._separate_class_kwargs(**kwargs)
-
-    #     self.create_main_plot_3d(x, y, z, class_kwargs, other_kwargs)
-    #     pass
 
     @staticmethod
     def _integrate_data_along_dim(
