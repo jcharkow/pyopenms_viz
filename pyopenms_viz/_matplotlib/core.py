@@ -227,33 +227,70 @@ class MATPLOTLIBScatterPlot(MATPLOTLIBPlot, ScatterPlot):
     @classmethod
     @APPEND_PLOT_DOC
     def plot(
-        cls, ax, data, x, y, by: str | None = None, **kwargs
+        cls, ax, data, x, y, by: str | None = None, plot_3d=False, **kwargs
     ) -> Tuple[Axes, "Legend"]:
         """
         Plot a scatter plot
         """
+        # Colors
         color_gen = kwargs.pop("line_color", None)
+        # Marker shapes
+        shape_gen = kwargs.pop("shape_gen", None)
+        marker_size = kwargs.pop("marker_size", 30)
+        if color_gen is None:
+            color_gen = ColorGenerator()
+        if shape_gen is None:
+            pass
+            # shape_gen = MarkerShapeGenerator(engine="MATPLOTLIB")
+        # Heatmap data and default config values
         z = kwargs.pop("z", None)
+
+        if z is not None:
+            for k, v in dict(
+                # marker="s",
+                s=marker_size,
+                edgecolors="none",
+                cmap="magma_r",
+            ).items():
+                if k not in kwargs.keys():
+                    kwargs[k] = v
+
+        kwargs["zorder"] = 2
 
         legend_lines = []
         legend_labels = []
         if by is None:
+            if "marker" not in kwargs.keys():
+                kwargs["marker"] = next(shape_gen)
             if z is not None:
                 use_color = data[z]
             else:
                 use_color = next(color_gen)
-            scatter = ax.scatter(
-                [data[x], data[x]], [0, data[y]], c=use_color, **kwargs
-            )
+
+            scatter = ax.scatter(data[x], data[y], c=use_color, **kwargs)
 
             return ax, None
         else:
+            if z is not None:
+                vmin, vmax = data[z].min(), data[z].max()
             for group, df in data.groupby(by):
                 if z is not None:
-                    use_color = df[z]
+                    use_color = df[z].values
                 else:
                     use_color = next(color_gen)
-                scatter = ax.scatter(df[x], df[y], c=use_color, **kwargs)
+                kwargs["marker"] = next(shape_gen)
+                # Normalize colors if z is specified
+                if z is not None:
+                    normalize = plt.Normalize(vmin=vmin, vmax=vmax)
+                    scatter = ax.scatter(
+                        df[x],
+                        df[y],
+                        c=use_color,
+                        norm=normalize,
+                        **kwargs,
+                    )
+                else:
+                    scatter = ax.scatter(df[x], df[y], c=use_color, **kwargs)
                 legend_lines.append(scatter)
                 legend_labels.append(group)
             return ax, (legend_lines, legend_labels)
@@ -377,7 +414,7 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
     # override creating figure because create a 2 by 2 figure
     def _create_figure(self):
         # Create a 2 by 2 figure and axis for marginal plots
-        if self.add_marginals:
+        if self.plot_config.add_marginals:
             self.superFig, self.ax_grid = plt.subplots(
                 2, 2, figsize=(self.width / 100, self.height / 100), dpi=200
             )
@@ -387,7 +424,7 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
     def plot(self, x, y, z, **kwargs):
         super().plot(x, y, z, **kwargs)
 
-        if self.add_marginals:
+        if self.plot_config.add_marginals:
             self.ax_grid[0, 0].remove()
             self.ax_grid[0, 0].axis("off")
             # Update the figure size
@@ -399,9 +436,8 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
     ):  # plots all plotted on same figure do not need to combine
         pass
 
-    def create_x_axis_plot(self, x, z, class_kwargs) -> "figure":
-        class_kwargs["fig"] = self.ax_grid[0, 1]
-        super().create_x_axis_plot(x, z, class_kwargs)
+    def create_x_axis_plot(self, x, z, by) -> "figure":
+        super().create_x_axis_plot(x, z, by, fig=self.ax_grid[0, 1])
 
         self.ax_grid[0, 1].set_title(None)
         self.ax_grid[0, 1].set_xlabel(None)
@@ -413,32 +449,26 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
         self.ax_grid[0, 1].yaxis.tick_right()
         self.ax_grid[0, 1].legend_ = None
 
-    def create_y_axis_plot(self, y, z, class_kwargs) -> "figure":
+    def create_y_axis_plot(self, y, z, by) -> "figure":
         # Note y_config is different so we cannot use the base class methods
-        class_kwargs["fig"] = self.ax_grid[1, 0]
         group_cols = [y]
-        if self.by is not None:
-            group_cols.append(self.by)
+        if by is not None:
+            group_cols.append(by)
 
         y_data = self._integrate_data_along_dim(self.data, group_cols, z)
         y_config = self._config.copy()
         y_config.xlabel = self.zlabel
         y_config.ylabel = self.ylabel
-        y_config.y_axis_location = "left"
+        # y_config.y_axis_location = "left"
         y_config.legend_config.show = True
         y_config.legend_config.loc = "below"
         y_config.legend_config.orientation = "horizontal"
         y_config.legend_config.bbox_to_anchor = (1, -0.4)
 
-        # remove legend from class_kwargs to update legend args for y axis plot
-        class_kwargs.pop("legend", None)
-        class_kwargs.pop("xlabel", None)
-        class_kwargs.pop("ylabel", None)
-
         color_gen = ColorGenerator()
 
         y_plot_obj = self.get_line_renderer(
-            y_data, z, y, by=self.by, _config=y_config, **class_kwargs
+            y_data, z, y, by=self.by, fig=self.ax_grid[1, 0], _config=y_config
         )
         y_fig = y_plot_obj.generate(line_color=color_gen)
         self.plot_x_axis_line(y_fig)
@@ -449,34 +479,20 @@ class MATPLOTLIBFeatureHeatmapPlot(MATPLOTLIB_MSPlot, FeatureHeatmapPlot):
         self.ax_grid[1, 0].set_ylabel(self.ylabel)
         self.ax_grid[1, 0].set_ylim(self.ax_grid[1, 1].get_ylim())
 
-    def create_main_plot(self, x, y, z, class_kwargs, other_kwargs):
+    def create_main_plot(self, x, y, z, by):
         scatterPlot = self.get_scatter_renderer(
-            self.data, x, y, z=z, fig=self.fig, **class_kwargs
+            self.data, x, y, z=z, fig=self.ax_grid[1, 1], by=by, _config=self._config
         )
-        scatterPlot.generate(
-            z=z,
-            marker="s",
-            s=20,
-            edgecolors="none",
-            cmap="afmhot_r",
-            **other_kwargs,
-        )
+        scatterPlot.generate(z=z, marker="s", s=20, edgecolors="none", cmap="afmhot_r")
 
         if self.annotation_data is not None:
             self._add_box_boundaries(self.annotation_data)
 
-    def create_main_plot_marginals(self, x, y, z, class_kwargs, other_kwargs):
+    def create_main_plot_marginals(self, x, y, z, by):
         scatterPlot = self.get_scatter_renderer(
-            self.data, x, y, z=z, fig=self.ax_grid[1, 1], **class_kwargs
+            self.data, x, y, z=z, by=by, fig=self.ax_grid[1, 1], _config=self._config
         )
-        scatterPlot.generate(
-            z=z,
-            marker="s",
-            s=20,
-            edgecolors="none",
-            cmap="afmhot_r",
-            **other_kwargs,
-        )
+        scatterPlot.generate(marker="s", s=20, edgecolors="none", cmap="afmhot_r")
         self.ax_grid[1, 1].set_title(None)
         self.ax_grid[1, 1].set_xlabel(self.xlabel)
         self.ax_grid[1, 1].set_ylabel(None)
