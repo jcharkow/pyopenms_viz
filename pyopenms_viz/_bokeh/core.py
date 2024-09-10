@@ -284,6 +284,8 @@ class BOKEHScatterPlot(BOKEHPlot, ScatterPlot):
         Plot a scatter plot
         """
 
+        print(kwargs)
+        print(cls.z)
         if by is None:
             source = ColumnDataSource(data)
             line = fig.scatter(x=x, y=y, source=source, **kwargs)
@@ -429,7 +431,6 @@ class BOKEHFeatureHeatmapPlot(BOKEH_MSPlot, FeatureHeatmapPlot):
             marker="square", line_color=mapper, fill_color=mapper
         )
 
-        print(self._config)
         if self.annotation_data is not None:
             self._add_box_boundaries(self.annotation_data)
 
