@@ -427,8 +427,10 @@ class PLOTLYSpectrumPlot(PLOTLY_MSPlot, SpectrumPlot):
 
 class PLOTLYFeatureHeatmapPlot(PLOTLY_MSPlot, FeatureHeatmapPlot):
 
-    def create_main_plot(self, x, y, z, class_kwargs, other_kwargs):
-        scatterPlot = self.get_scatter_renderer(self.data, x, y, **class_kwargs)
+    def create_main_plot(self, x, y, z, by):
+        scatterPlot = self.get_scatter_renderer(
+            self.data, x, y, by=by, _config=self._config
+        )
         self.fig = scatterPlot.generate(
             marker=dict(
                 color=self.data[z],
@@ -440,20 +442,19 @@ class PLOTLYFeatureHeatmapPlot(PLOTLY_MSPlot, FeatureHeatmapPlot):
                 size=10,
                 opacity=0.4,
             ),
-            **other_kwargs,
         )
 
         if self.annotation_data is not None:
             self._add_box_boundaries(self.annotation_data)
 
-    def create_x_axis_plot(self, x, z, class_kwargs) -> "figure":
-        x_fig = super().create_x_axis_plot(x, z, class_kwargs)
+    def create_x_axis_plot(self, x, z, by) -> "figure":
+        x_fig = super().create_x_axis_plot(x, z, by=by)
         x_fig.update_xaxes(visible=False)
 
         return x_fig
 
-    def create_y_axis_plot(self, y, z, class_kwargs) -> "figure":
-        y_fig = super().create_y_axis_plot(y, z, class_kwargs)
+    def create_y_axis_plot(self, y, z, by) -> "figure":
+        y_fig = super().create_y_axis_plot(y, z, by)
         y_fig.update_xaxes(range=[0, self.data[z].max()])
         y_fig.update_yaxes(range=[self.data[y].min(), self.data[y].max()])
         y_fig.update_layout(xaxis_title=self.ylabel, yaxis_title=self.zlabel)
