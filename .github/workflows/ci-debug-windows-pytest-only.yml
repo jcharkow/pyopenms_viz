@@ -11,15 +11,16 @@ jobs:
   test:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v4
     - name: Set up Python 3.14
       uses: actions/setup-python@v5
       with:
         python-version: "3.14"
-    - name: Install pytest only (no project deps)
+    - name: Install pytest only (no project deps, no repo checkout)
       run: |
         python -m pip install --upgrade pip
         pip install pytest
-    - name: Run pytest with no test files
+    - name: Run pytest in empty temp dir (no test files)
       run: |
+        New-Item -ItemType Directory -Path "$env:TEMP\empty_pytest" -Force
+        Set-Location "$env:TEMP\empty_pytest"
         python -m pytest --collect-only
