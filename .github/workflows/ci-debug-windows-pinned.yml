@@ -1,0 +1,29 @@
+name: ci-debug-windows-pinned-winonly
+
+on: [push]
+
+# Cancel in-progress runs when a new push is made to the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies (original pinned requirements.txt)
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt # visual tests are very finiky so fix the versions
+        pip install . # install pyopenms-viz
+    - name: Test
+      run: |
+        python -m pytest --snapshot-warn-unused test/ # do not fail if unused snapshot, just warn
