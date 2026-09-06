@@ -13,17 +13,16 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.12", "3.13"]
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.14"
     - name: Install pytest only (no project deps)
       run: |
         python -m pip install --upgrade pip
         pip install pytest
     - name: Run pytest with no test files
       run: |
-        python -m pytest --ignore=test --ignore=testing -p no:cacheprovider
+        python -m pytest --collect-only
